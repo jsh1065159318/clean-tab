@@ -29,7 +29,6 @@ safari/DerivedData/
 safari/build/
 
 # Files
-package-lock.json
 .stylelintcache
 yarn-error.log
 .eslintcache

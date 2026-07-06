@@ -1,10 +1,9 @@
 /**
- * Vite Configuration for Mue Browser Extension
+ * Vite configuration for the Clean Tab browser extension.
  *
  * This configuration handles building the extension for multiple browsers:
  * - Chrome/Edge (Manifest V3)
  * - Firefox (Manifest V3)
- * - Safari (via Xcode project)
  *
  * Build Process:
  * 1. Vite bundles the React app into /dist
@@ -30,7 +29,7 @@ const prepareBuilds = () => ({
   name: 'prepareBuilds',
   closeBundle() {
     if (isProd) {
-      console.log('📦 Building extension packages...');
+      console.log('Building extension packages...');
 
       // Ensure base directories exist
       fs.mkdirSync(path.resolve(__dirname, './build'), { recursive: true });
@@ -42,7 +41,7 @@ const prepareBuilds = () => ({
       fs.cpSync(path.resolve(__dirname, './src/assets'), distAssetsPath, { recursive: true });
 
       // Chrome Build
-      console.log('🔨 Building Chrome extension...');
+      console.log('Building Chrome extension...');
       const chromeBuildPath = path.resolve(__dirname, './build/chrome');
       fs.mkdirSync(chromeBuildPath, { recursive: true });
 
@@ -56,13 +55,6 @@ const prepareBuilds = () => ({
         path.resolve(chromeBuildPath, 'background.js'),
       );
 
-      // Copy locales
-      fs.cpSync(
-        path.resolve(__dirname, './manifest/_locales'),
-        path.resolve(chromeBuildPath, '_locales'),
-        { recursive: true },
-      );
-
       // Copy dist (bundled app)
       fs.cpSync(path.resolve(__dirname, './dist'), chromeBuildPath, { recursive: true });
 
@@ -74,7 +66,7 @@ const prepareBuilds = () => ({
       );
 
       // Firefox Build
-      console.log('🦊 Building Firefox extension...');
+      console.log('Building Firefox extension...');
       const firefoxBuildPath = path.resolve(__dirname, './build/firefox');
       fs.mkdirSync(firefoxBuildPath, { recursive: true });
 
@@ -98,50 +90,19 @@ const prepareBuilds = () => ({
         { recursive: true },
       );
 
-      // Safari Build
-      console.log('🧭 Building Safari extension...');
-      const safariResourcesPath = path.resolve(__dirname, './safari/Mue Extension/Resources');
-      fs.mkdirSync(safariResourcesPath, { recursive: true });
-
-      // Copy background script
-      fs.copyFileSync(
-        path.resolve(__dirname, './manifest/background.js'),
-        path.resolve(safariResourcesPath, 'background.js'),
-      );
-
-      // Copy built files from dist (excluding manifest.json which Safari manages separately)
-      fs.cpSync(path.resolve(__dirname, './dist'), safariResourcesPath, {
-        recursive: true,
-        filter: (src) => !src.endsWith('manifest.json'),
-      });
-
-      // Copy extension icons
-      fs.cpSync(
-        path.resolve(__dirname, './src/assets/icons'),
-        path.resolve(safariResourcesPath, 'icons'),
-        { recursive: true },
-      );
-
-      // Copy locales
-      fs.cpSync(
-        path.resolve(__dirname, './manifest/_locales'),
-        path.resolve(safariResourcesPath, '_locales'),
-        { recursive: true },
-      );
-
       // Create distribution zips
-      console.log('📦 Creating distribution packages...');
+      console.log('Creating distribution packages...');
       const chromeZip = new ADMZip();
       chromeZip.addLocalFolder(chromeBuildPath);
-      chromeZip.writeZip(path.resolve(__dirname, `./build/chrome-${pkg.version}.zip`));
-      console.log(`✅ Chrome: chrome-${pkg.version}.zip`);
+      chromeZip.writeZip(path.resolve(__dirname, `./build/clean-tab-chrome-${pkg.version}.zip`));
+      console.log(`Chrome: clean-tab-chrome-${pkg.version}.zip`);
 
       const firefoxZip = new ADMZip();
       firefoxZip.addLocalFolder(firefoxBuildPath);
-      firefoxZip.writeZip(path.resolve(__dirname, `./build/firefox-${pkg.version}.zip`));
-      console.log(`✅ Firefox: firefox-${pkg.version}.zip`);
+      firefoxZip.writeZip(path.resolve(__dirname, `./build/clean-tab-firefox-${pkg.version}.zip`));
+      console.log(`Firefox: clean-tab-firefox-${pkg.version}.zip`);
 
-      console.log('✨ Build complete!');
+      console.log('Build complete.');
     }
   },
 });
@@ -174,6 +135,8 @@ export default defineConfig(({ command, mode }) => {
         features: path.resolve(__dirname, './src/features'),
         lib: path.resolve(__dirname, './src/lib'),
         scss: path.resolve(__dirname, './src/scss'),
+        services: path.resolve(__dirname, './src/services'),
+        stores: path.resolve(__dirname, './src/stores'),
         translations: path.resolve(__dirname, './src/i18n/locales'),
         utils: path.resolve(__dirname, './src/utils'),
       },

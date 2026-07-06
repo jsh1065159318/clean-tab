@@ -1,12 +1,10 @@
 {
   "manifest_version": 3,
   "offline_enabled": true,
-  "default_locale": "en",
-  "name": "__MSG_name__",
-  "description": "__MSG_description__",
-  "version": "7.6.0",
-  "homepage_url": "https://muetab.com",
-  "permissions": ["search"],
+  "name": "Clean Tab",
+  "description": "A clean, extensible new tab browser extension starter.",
+  "version": "0.1.0",
+  "permissions": ["storage"],
   "action": {
     "default_icon": "icons/128x128.png"
   },

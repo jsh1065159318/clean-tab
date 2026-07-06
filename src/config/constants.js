@@ -1,28 +1,25 @@
-// API URLs
-export const API_URL = 'https://api.muetab.com/v2';
-export const SPONSORS_URL = 'https://sponsors.muetab.com';
+// Legacy constants kept for old modules that are not part of the clean runtime entry.
+export const API_URL = import.meta.env.VITE_API_BASE_URL || '';
+export const SPONSORS_URL = '';
 export const GITHUB_URL = 'https://api.github.com';
 export const OPENSTREETMAP_URL = 'https://www.openstreetmap.org';
 
-// Mue URLs
-export const WEBSITE_URL = 'https://muetab.com';
-export const MARKETPLACE_URL = 'https://muetab.com/marketplace';
-export const CHANGELOG_URL = 'https://muetab.com/blog/changelog';
-export const PRIVACY_URL = 'https://muetab.com/privacy';
-export const WEBLATE_URL = 'https://hosted.weblate.org/projects/mue/mue-tab/';
-export const REPORT_ITEM =
-  'https://github.com/mue/marketplace/issues/new?assignees=&labels=item%2Creport&projects=&template=item_issue_report.yml&title=%5BItem+Report%5D+Insert+marketplace+item+name+here';
-export const BUG_REPORT =
-  'https://github.com/mue/mue/issues/new?assignees=&labels=bug&projects=&template=issue_report.yml&title=%5BBug%5D+Insert+issue+name+here';
-export const SENTRY_DSN =
-  'https://430352fd4b174d688ebd82fc85c22c58@o1217438.ingest.sentry.io/6359480';
-export const KNOWLEDGEBASE = 'https://support.muetab.com';
+// App URLs
+export const WEBSITE_URL = '';
+export const MARKETPLACE_URL = '';
+export const CHANGELOG_URL = '';
+export const PRIVACY_URL = '';
+export const WEBLATE_URL = '';
+export const REPORT_ITEM = '';
+export const BUG_REPORT = '';
+export const SENTRY_DSN = '';
+export const KNOWLEDGEBASE = '';
 
-// Mue Info
-export const ORG_NAME = 'mue';
-export const REPO_NAME = 'mue';
-export const EMAIL = 'hello@muetab.com';
-export const TWITTER_HANDLE = 'getmue';
-export const DISCORD_SERVER = 'zv8C9F8';
+// App Info
+export const ORG_NAME = '';
+export const REPO_NAME = '';
+export const EMAIL = '';
+export const TWITTER_HANDLE = '';
+export const DISCORD_SERVER = '';
 
-export const VERSION = '7.6.0';
+export const VERSION = '0.1.0';
