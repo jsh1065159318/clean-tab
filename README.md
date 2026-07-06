@@ -1,51 +1,51 @@
-# Clean Tab
+# 清爽标签页
 
-A clean, extensible new tab browser extension starter based on React and Vite.
+一个基于 React 和 Vite 的新标签页浏览器扩展前端模板。
 
-This repository is being refactored from an existing new tab extension codebase into a smaller frontend foundation for a custom new tab product. The current runtime path is intentionally lightweight and keeps backend integration behind service boundaries.
+当前仓库已经整理为更轻量的前端底座：运行入口只保留简体中文界面，后端接口、登录认证和设置同步都通过服务层预留边界。
 
-## Current Scope
+## 当前范围
 
-- New tab override for Chromium and Firefox style extensions
-- React + Vite frontend
-- Clock, date, greeting, search, quick links, background settings
-- Local settings storage
-- Prepared service layer for future API, auth, and settings sync work
+- Chromium / Firefox 风格的新标签页扩展结构
+- React + Vite 前端
+- 时钟、日期、问候语、搜索、快捷链接、背景设置
+- 本地设置存储
+- 为后续 API、用户认证、设置同步预留服务层
 
-## Development
+## 开发
 
-Install dependencies:
+安装依赖：
 
 ```sh
 npm install
 ```
 
-Run locally:
+本地运行：
 
 ```sh
 npm run dev
 ```
 
-Build extension packages:
+构建扩展包：
 
 ```sh
 npm run build
 ```
 
-Run checks:
+运行检查：
 
 ```sh
 npm run lint
 ```
 
-## Frontend Architecture
+## 前端结构
 
 ```txt
-src/app          Runtime entry and new tab UI
-src/config       App metadata, defaults, endpoint config
-src/services     Storage, API, auth, settings, sync boundaries
-src/stores       Small React-compatible stores
-src/styles       Clean runtime styles
+src/app          当前运行入口和新标签页 UI
+src/config       应用信息、默认设置、接口地址配置
+src/services     存储、API、认证、设置、同步边界
+src/stores       React 可订阅的小型状态层
+src/styles       当前运行样式
 ```
 
-Legacy source folders are still present while the refactor is in progress. They are not part of the current runtime entry unless explicitly imported again.
+旧功能目录仍暂时保留，方便后续按需迁移；当前运行入口不会主动引用旧的多语言体系。

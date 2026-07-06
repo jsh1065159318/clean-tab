@@ -2,7 +2,7 @@
   "name": "clean-tab",
   "private": true,
   "author": "",
-  "description": "A clean, extensible new tab browser extension starter.",
+  "description": "一个干净、可扩展的新标签页扩展前端模板。",
   "repository": {
     "url": ""
   },

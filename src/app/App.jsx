@@ -52,9 +52,9 @@ function Clock() {
 function Greeting({ name, enabled }) {
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return '早上好';
+    if (hour < 18) return '下午好';
+    return '晚上好';
   }, []);
 
   if (!enabled) {
@@ -82,10 +82,10 @@ function SearchBox({ engine }) {
     <form className="search" onSubmit={submit}>
       <MdSearch aria-hidden="true" />
       <input
-        aria-label="Search"
+        aria-label="搜索"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search or type a URL"
+        placeholder="搜索，或输入网址"
       />
     </form>
   );
@@ -97,7 +97,7 @@ function Quicklinks({ items, enabled }) {
   }
 
   return (
-    <nav className="quicklinks" aria-label="Quick links">
+    <nav className="quicklinks" aria-label="快捷链接">
       {items.map((item) => (
         <a key={item.id} href={item.url} rel="noreferrer" className="quicklink">
           <span>{item.title}</span>
@@ -139,38 +139,38 @@ function SettingsPanel({ settings, onClose }) {
   };
 
   return (
-    <aside className="settings-panel" aria-label="Settings">
+    <aside className="settings-panel" aria-label="设置">
       <div className="settings-header">
         <div>
           <span className="eyebrow">{appConfig.name}</span>
-          <h2>Settings</h2>
+          <h2>设置</h2>
         </div>
-        <button className="icon-button" type="button" onClick={onClose} aria-label="Close settings">
+        <button className="icon-button" type="button" onClick={onClose} aria-label="关闭设置">
           <MdClose />
         </button>
       </div>
 
       <div className="settings-section">
         <label>
-          Name
+          称呼
           <input
             value={settings.greetingName}
             onChange={(event) => update({ greetingName: event.target.value })}
-            placeholder="Your name"
+            placeholder="你的名字"
           />
         </label>
 
         <label>
-          Theme
+          主题
           <select value={settings.theme} onChange={(event) => update({ theme: event.target.value })}>
-            <option value="auto">Auto</option>
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
+            <option value="auto">跟随系统</option>
+            <option value="dark">深色</option>
+            <option value="light">浅色</option>
           </select>
         </label>
 
         <label>
-          Search
+          搜索引擎
           <select
             value={settings.searchEngine}
             onChange={(event) => update({ searchEngine: event.target.value })}
@@ -184,20 +184,20 @@ function SettingsPanel({ settings, onClose }) {
 
       <div className="settings-section">
         <label>
-          Background
+          背景
           <select
             value={settings.backgroundMode}
             onChange={(event) => update({ backgroundMode: event.target.value })}
           >
-            <option value="gradient">Gradient</option>
-            <option value="color">Color</option>
-            <option value="image">Image URL</option>
+            <option value="gradient">渐变</option>
+            <option value="color">纯色</option>
+            <option value="image">图片链接</option>
           </select>
         </label>
 
         {settings.backgroundMode === 'color' && (
           <label>
-            Color
+            颜色
             <input
               type="color"
               value={settings.backgroundColor}
@@ -208,7 +208,7 @@ function SettingsPanel({ settings, onClose }) {
 
         {settings.backgroundMode === 'image' && (
           <label>
-            Image URL
+            图片链接
             <input
               value={settings.backgroundImageUrl}
               onChange={(event) => update({ backgroundImageUrl: event.target.value })}
@@ -225,7 +225,7 @@ function SettingsPanel({ settings, onClose }) {
             checked={settings.showGreeting}
             onChange={(event) => update({ showGreeting: event.target.checked })}
           />
-          Greeting
+          问候语
         </label>
         <label>
           <input
@@ -233,17 +233,17 @@ function SettingsPanel({ settings, onClose }) {
             checked={settings.showQuicklinks}
             onChange={(event) => update({ showQuicklinks: event.target.checked })}
           />
-          Quick links
+          快捷链接
         </label>
       </div>
 
       <div className="settings-section">
-        <div className="section-title">Quick links</div>
+        <div className="section-title">快捷链接</div>
         <form className="quicklink-form" onSubmit={addQuicklink}>
           <input
             value={draftLink.title}
             onChange={(event) => setDraftLink({ ...draftLink, title: event.target.value })}
-            placeholder="Title"
+            placeholder="名称"
           />
           <input
             value={draftLink.url}
@@ -259,11 +259,11 @@ function SettingsPanel({ settings, onClose }) {
           {settings.quicklinks.map((item) => (
             <div className="quicklink-row" key={item.id}>
               <span>{item.title}</span>
-              <button
+          <button
                 className="icon-button"
                 type="button"
                 onClick={() => removeQuicklink(item.id)}
-                aria-label={`Remove ${item.title}`}
+                aria-label={`移除 ${item.title}`}
               >
                 <MdDeleteOutline />
               </button>
@@ -274,7 +274,7 @@ function SettingsPanel({ settings, onClose }) {
 
       <button className="reset-button" type="button" onClick={() => settingsStore.reset()}>
         <MdRefresh />
-        Reset settings
+        重置设置
       </button>
     </aside>
   );
@@ -310,12 +310,12 @@ function App() {
         className="settings-trigger"
         type="button"
         onClick={() => setSettingsOpen(true)}
-        aria-label="Open settings"
+        aria-label="打开设置"
       >
         <MdSettings />
       </button>
 
-      <section className="workspace" aria-label="New tab dashboard">
+      <section className="workspace" aria-label="新标签页面板">
         <Greeting name={settings.greetingName} enabled={settings.showGreeting} />
         <Clock />
         <SearchBox engine={settings.searchEngine} />

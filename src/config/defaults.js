@@ -10,7 +10,7 @@ export const defaultSettings = {
   showQuicklinks: true,
   quicklinks: [
     { id: 'github', title: 'GitHub', url: 'https://github.com' },
-    { id: 'mail', title: 'Mail', url: 'https://mail.google.com' },
-    { id: 'docs', title: 'Docs', url: 'https://docs.google.com' },
+    { id: 'mail', title: '邮箱', url: 'https://mail.google.com' },
+    { id: 'docs', title: '文档', url: 'https://docs.google.com' },
   ],
 };
