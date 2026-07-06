@@ -1,0 +1,40 @@
+# Directories
+node_modules/
+.history/
+.vscode/
+build/
+.idea/
+dist/
+
+# Safari Extension Build Files
+safari/Mue Extension/Resources/*.html
+safari/Mue Extension/Resources/*.js
+safari/Mue Extension/Resources/*.css
+safari/Mue Extension/Resources/assets/
+safari/Mue Extension/Resources/icons/
+safari/Mue Extension/Resources/src/
+safari/Mue Extension/Resources/_locales/
+!safari/Mue Extension/Resources/manifest.json
+
+# Xcode User Data
+safari/Mue.xcodeproj/xcuserdata/
+safari/Mue.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xcbkptlist
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.pbxuser
+safari/DerivedData/
+safari/build/
+
+# Files
+package-lock.json
+.stylelintcache
+yarn-error.log
+.eslintcache
+stats.json
+yarn.lock
+keys.json
+.DS_Store
+*.zip

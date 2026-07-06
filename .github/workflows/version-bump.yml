@@ -1,0 +1,136 @@
+name: Version Bump
+
+on:
+  pull_request:
+    types:
+      - closed
+    labels:
+      - 'release'
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.1'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Extract bump info from PR
+        id: bump_info
+        run: |
+          BUMP_TYPE=$(echo "${{ github.event.pull_request.body }}" | grep -oP "bump: \K(major|minor|patch)" || echo "patch")
+          IS_RELEASE=$(echo "${{ github.event.pull_request.body }}" | grep -q "is_release: true" && echo "true" || echo "false")
+          
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+
+      - name: Calculate new version
+        id: version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          BASE_VERSION=$(echo $CURRENT_VERSION | sed 's/-.*$//')
+          IFS='.' read -r -a VERSION_PARTS <<< "$BASE_VERSION"
+          
+          MAJOR="${VERSION_PARTS[0]}"
+          MINOR="${VERSION_PARTS[1]}"
+          PATCH="${VERSION_PARTS[2]}"
+          
+          case "${{ steps.bump_info.outputs.bump_type }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          
+          # Add pre-release suffix if NOT a production release AND NOT on main branch
+          if [ "${{ steps.bump_info.outputs.is_release }}" != "true" ] && [ "${{ github.ref_name }}" != "main" ]; then
+            BETA_COUNT=$(git tag -l "v${NEW_VERSION}-beta.*" | wc -l)
+            BETA_NUM=$((BETA_COUNT + 1))
+            NEW_VERSION="${NEW_VERSION}-beta.${BETA_NUM}"
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update package.json
+        run: bun x json -I -f package.json -e "this.version='${{ steps.version.outputs.new_version }}'"
+
+      - name: Update Chrome manifest
+        run: bun x json -I -f manifest/chrome.json -e "this.version='${{ steps.version.outputs.new_version }}'"
+
+      - name: Update Firefox manifest
+        run: bun x json -I -f manifest/firefox.json -e "this.version='${{ steps.version.outputs.new_version }}'"
+
+      - name: Update Safari manifest
+        run: bun x json -I -f safari/Mue\ Extension/Resources/manifest.json -e "this.version='${{ steps.version.outputs.new_version }}'"
+
+      - name: Update Safari Xcode (4 MARKETING_VERSION entries)
+        run: sed -i '' "s/MARKETING_VERSION = [^;]*/MARKETING_VERSION = ${{ steps.version.outputs.new_version }}/g" safari/Mue.xcodeproj/project.pbxproj
+
+      - name: Update constants.js
+        run: sed -i '' "s/export const VERSION = '[^']*'/export const VERSION = '${{ steps.version.outputs.new_version }}'/" src/config/constants.js
+
+      - name: Commit and tag
+        run: |
+          git add package.json manifest/chrome.json manifest/firefox.json safari/Mue\ Extension/Resources/manifest.json safari/Mue.xcodeproj/project.pbxproj src/config/constants.js
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+          git tag -a "v${{ steps.version.outputs.new_version }}" -m "Release v${{ steps.version.outputs.new_version }}"
+          git push origin ${{ github.ref_name }}
+          git push origin "v${{ steps.version.outputs.new_version }}"
+
+      - name: Auto back-merge (main only)
+        if: github.ref_name == 'main'
+        run: |
+          git fetch origin
+          git checkout beta
+          git merge --no-ff origin/main -m "chore: back-merge main into beta"
+          git push origin beta
+          
+          git checkout dev
+          git merge --no-ff origin/beta -m "chore: back-merge beta into dev"
+          git push origin dev
+
+      - name: Summary
+        run: |
+          echo "✅ Version bumped to ${{ steps.version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "📦 Tag: v${{ steps.version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "🔀 Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Files updated:" >> $GITHUB_STEP_SUMMARY
+          echo "- package.json" >> $GITHUB_STEP_SUMMARY
+          echo "- manifest/chrome.json" >> $GITHUB_STEP_SUMMARY
+          echo "- manifest/firefox.json" >> $GITHUB_STEP_SUMMARY
+          echo "- safari/Mue Extension/Resources/manifest.json" >> $GITHUB_STEP_SUMMARY
+          echo "- safari/Mue.xcodeproj/project.pbxproj" >> $GITHUB_STEP_SUMMARY
+          echo "- src/config/constants.js" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "### 🔄 Auto back-merge:" >> $GITHUB_STEP_SUMMARY
+            echo "- main → beta ✅" >> $GITHUB_STEP_SUMMARY
+            echo "- beta → dev ✅" >> $GITHUB_STEP_SUMMARY
+          fi
