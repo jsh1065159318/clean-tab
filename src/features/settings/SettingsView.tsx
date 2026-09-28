@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { MdDeleteOutline, MdDownload, MdImage, MdLogout, MdRefresh, MdUpload } from 'react-icons/md'
 import type { SyncState } from 'features/sync/useWorkspaceSync'
 import { compressImageFile } from 'utils/imageCompression'
+import { searchEngineOptions } from 'utils/resolveSearchInput'
 
 interface SettingsValue {
   backgroundColor?: string
@@ -175,9 +176,9 @@ export function SettingsView(props: SettingsViewProps) {
           <label>
             搜索引擎
             <select value={props.settings.searchEngine || 'google'} onChange={event => props.onUpdate({ searchEngine: event.target.value })}>
-              <option value="google">Google</option>
-              <option value="bing">Bing</option>
-              <option value="duckduckgo">DuckDuckGo</option>
+              {searchEngineOptions.map(option => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
             </select>
           </label>
           <label className="setting-switch setting-switch-with-help" htmlFor="save-search-history">

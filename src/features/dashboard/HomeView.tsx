@@ -1,13 +1,16 @@
 import type { FormEvent, KeyboardEvent, RefObject } from 'react'
 import { useEffect, useMemo, useState } from 'react'
-import { MdAdd, MdArrowForward, MdDeleteOutline, MdHistory, MdSearch } from 'react-icons/md'
+import { MdAdd, MdArrowForward, MdDeleteOutline, MdHistory } from 'react-icons/md'
 import type { Shortcut, Todo } from 'features/store/workspaceStore'
+import { isSearchEngineId, searchEngineOptions } from 'utils/resolveSearchInput'
+import type { SearchEngineId } from 'utils/resolveSearchInput'
 import { ShortcutGrid } from './ShortcutGrid'
 
 interface HomeViewProps {
   displayName: string
   recentSearches: string[]
   search: string
+  searchEngine: string
   searchInputRef: RefObject<HTMLInputElement | null>
   shortcuts: Shortcut[]
   showGreeting: boolean
@@ -15,6 +18,7 @@ interface HomeViewProps {
   todos: Todo[]
   onAddShortcut: () => void
   onAddTodo: (text: string) => void
+  onChangeSearchEngine: (engine: SearchEngineId) => void
   onDeleteShortcut: (shortcut: Shortcut) => void
   onEditShortcut: (shortcut: Shortcut) => void
   onOpenShortcut: (shortcut: Shortcut) => void
@@ -49,6 +53,8 @@ export function HomeView(props: HomeViewProps) {
   const [searchFocused, setSearchFocused] = useState(false)
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1)
   const pendingTodos = props.todos.filter(todo => !todo.done).slice(0, 3)
+  const engine: SearchEngineId = isSearchEngineId(props.searchEngine) ? props.searchEngine : 'google'
+  const engineLabel = searchEngineOptions.find(option => option.id === engine)?.label ?? 'Google'
   const filteredSearches = useMemo(() => {
     const query = props.search.trim().toLocaleLowerCase()
     return query
@@ -129,7 +135,19 @@ export function HomeView(props: HomeViewProps) {
 
         <div className="search-shell">
           <form className="unified-search" onSubmit={props.onSearchSubmit}>
-            <MdSearch aria-hidden="true" />
+            <select
+              className="search-engine"
+              value={engine}
+              onChange={event => {
+                if (isSearchEngineId(event.target.value)) props.onChangeSearchEngine(event.target.value)
+              }}
+              aria-label="选择搜索引擎"
+              title={`当前搜索引擎：${engineLabel}`}
+            >
+              {searchEngineOptions.map(option => (
+                <option key={option.id} value={option.id}>{option.label}</option>
+              ))}
+            </select>
             <input
               ref={props.searchInputRef}
               value={props.search}
@@ -150,7 +168,7 @@ export function HomeView(props: HomeViewProps) {
               role="combobox"
               autoComplete="off"
             />
-            <kbd>/</kbd>
+            <kbd>回车</kbd>
           </form>
           {showRecentSearches && (
             <div className="recent-search-popover">

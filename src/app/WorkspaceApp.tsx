@@ -188,17 +188,8 @@ export default function WorkspaceApp() {
     return () => window.removeEventListener('keydown', openCommandPalette)
   }, [])
 
-  useEffect(() => {
-    const focusSearch = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      if (event.key !== '/' || target?.matches('input, textarea, select, [contenteditable="true"]')) return
-      event.preventDefault()
-      setView('home')
-      window.setTimeout(() => searchInputRef.current?.focus(), 0)
-    }
-    window.addEventListener('keydown', focusSearch)
-    return () => window.removeEventListener('keydown', focusSearch)
-  }, [])
+  // 原先按 / 聚焦搜索框的全局快捷键已移除，输入框内的提示徽章改为「回车」。
+  // 键盘用户仍可通过 Tab 或命令面板（Cmd/Ctrl+K）的「聚焦搜索」进入。
 
   useEffect(() => {
     const showStorageError = () => showToast('浏览器存储暂不可用，请及时导出数据', 'error')
@@ -661,6 +652,7 @@ export default function WorkspaceApp() {
               displayName={displayName}
               recentSearches={settings.saveSearchHistory ? recentSearches : []}
               search={search}
+              searchEngine={settings.searchEngine || 'google'}
               searchInputRef={searchInputRef}
               shortcuts={shortcuts}
               showGreeting={settings.showGreeting ?? true}
@@ -668,6 +660,7 @@ export default function WorkspaceApp() {
               todos={todos}
               onAddShortcut={() => openShortcutEditor()}
               onAddTodo={addTodo}
+              onChangeSearchEngine={engine => updateSettings({ searchEngine: engine })}
               onClearRecentSearches={() => setRecentSearches(recentSearchService.clear())}
               onDeleteShortcut={deleteShortcut}
               onEditShortcut={openShortcutEditor}

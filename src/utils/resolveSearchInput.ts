@@ -2,6 +2,16 @@ import { parseNavigableUrl } from './parseNavigableUrl'
 
 export type SearchEngineId = 'google' | 'bing' | 'duckduckgo'
 
+// 首页的引擎切换器与设置页共用同一份列表，避免两处各写一份而逐渐不一致。
+export const searchEngineOptions: Array<{ id: SearchEngineId; label: string }> = [
+  { id: 'google', label: 'Google' },
+  { id: 'bing', label: 'Bing' },
+  { id: 'duckduckgo', label: 'DuckDuckGo' },
+]
+
+export const isSearchEngineId = (value: unknown): value is SearchEngineId =>
+  typeof value === 'string' && searchEngineOptions.some(option => option.id === value)
+
 const searchEngines: Record<SearchEngineId, string> = {
   google: 'https://www.google.com/search?q=',
   bing: 'https://www.bing.com/search?q=',

@@ -690,10 +690,10 @@ button.sync-status:hover {
   width: 100%;
   height: 58px;
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 0 16px 0 20px;
+  padding: 0 16px 0 14px;
   border: 1px solid var(--border-strong);
   border-radius: 18px;
   background: color-mix(in srgb, var(--surface-solid) 76%, transparent);
@@ -702,16 +702,46 @@ button.sync-status:hover {
   transition: 180ms ease;
 }
 
+// 焦点提示改由容器自身承担：边框转强调色 + 阴影加深 + 轻微上浮。
+// 搜索框在鼠标点击时同样命中 :focus-visible，全局的 3px 硬轮廓显得突兀，
+// 因此在下面单独取消输入框的轮廓。焦点状态依然清晰可见，不影响无障碍识别。
 .unified-search:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border-strong));
   background: var(--surface-solid);
   box-shadow: 0 20px 70px rgb(91 103 241 / 14%);
   transform: translateY(-1px);
 }
 
-.unified-search > svg {
-  color: var(--faint);
-  font-size: 21px;
+.unified-search input:focus-visible {
+  outline: none;
+}
+
+// 搜索引擎切换器：与输入框同处一行，去掉原生控件外观以融入整体。
+.search-engine {
+  max-width: 120px;
+  height: 34px;
+  padding: 0 26px 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--muted);
+  background-color: transparent;
+  background-image: linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position: right 12px center, right 7px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  appearance: none;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.search-engine:hover {
+  color: var(--text);
+  background-color: var(--accent-soft);
 }
 
 .unified-search input {
@@ -724,6 +754,20 @@ button.sync-status:hover {
 
 .unified-search input::placeholder {
   color: var(--faint);
+}
+
+// 「回车」比原来的「/」宽，改用内边距撑开，不再依赖固定最小宽度。
+.unified-search kbd {
+  min-width: auto;
+  padding: 0 8px;
+}
+
+@media (width <= 640px) {
+  .search-engine {
+    max-width: 96px;
+    padding: 0 22px 0 8px;
+    font-size: 12px;
+  }
 }
 
 .recent-search-popover {
