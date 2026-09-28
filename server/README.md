@@ -16,6 +16,28 @@
 
 ## 本地启动
 
+### 1. 准备数据库
+
+需要一个 PostgreSQL 13 或更高版本。用 Docker 起一个最省事：
+
+```sh
+docker run -d --name clean-tab-postgres \
+  -e POSTGRES_USER=clean_tab \
+  -e POSTGRES_PASSWORD=clean_tab_dev_password \
+  -e POSTGRES_DB=clean_tab \
+  -p 5432:5432 \
+  -v clean-tab-postgres-data:/var/lib/postgresql \
+  --restart unless-stopped \
+  postgres:18-alpine
+```
+
+> **PostgreSQL 18 的挂载点变了**：官方镜像从 18 起把数据目录约定改为 `/var/lib/postgresql`（内含版本子目录），
+> 沿用旧版的 `/var/lib/postgresql/data` 会导致容器反复重启。使用 17 及以下版本时才挂 `/var/lib/postgresql/data`。
+
+已有本机 PostgreSQL 时可跳过这一步，直接把连接串填进 `server/.env`。
+
+### 2. 启动后端
+
 ```sh
 cd server
 cp .env.example .env      # 按需修改 DATABASE_URL
@@ -31,11 +53,28 @@ curl http://127.0.0.1:8787/health
 # {"ok":true,"time":"..."}
 ```
 
-随后在项目根目录的 `.env.local` 中填写：
+> 若终端配置了 HTTP 代理，curl 可能把 `127.0.0.1` 也走代理而报连接失败，
+> 加 `--noproxy '*'` 即可：`curl --noproxy '*' http://127.0.0.1:8787/health`。
+
+### 3. 启动前端
+
+在项目根目录的 `.env.local` 中填写后端地址：
 
 ```sh
 VITE_API_BASE_URL=http://127.0.0.1:8787
 ```
+
+然后：
+
+```sh
+npm install
+npm run dev               # 打开 http://localhost:5173/
+```
+
+> Vite 默认绑定 `localhost`（可能是 IPv6 的 `::1`），用 `127.0.0.1:5173` 可能连不上，
+> 这是正常现象，用 `localhost` 访问即可。
+
+打开页面后右上角点击头像注册账号，即可验证登录与同步。注册与登录完全走本机后端，不依赖任何外部服务。
 
 ## 环境变量
 

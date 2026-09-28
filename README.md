@@ -30,6 +30,8 @@ npm install
 npm run dev
 ```
 
+不配置后端时，扩展以**纯本地模式**运行，搜索、快捷方式、任务、笔记、专注与全部工具都可正常使用，只是没有多设备同步。要启用登录与同步，先按 [`server/README.md`](server/README.md) 启动自建后端，并在 `.env.local` 中填写 `VITE_API_BASE_URL`。
+
 构建扩展包：
 
 ```sh
