@@ -23,6 +23,9 @@ export interface Todo {
   tag: string
   subtasks: Subtask[]
   dueDate?: string
+  // 非空表示这一条是「冲突副本」，指向被它覆盖的原任务。
+  // 副本不出现在常规任务列表，只在同步面板的冲突区呈现。
+  conflictOf?: string
   updatedAt?: string
   version?: number
 }

@@ -13,4 +13,5 @@ export const STORAGE_KEYS = {
   focusTimer: 'cleanTab.focusTimer',
   focusTaskId: 'cleanTab.focusTaskId',
   sessionToken: 'cleanTab.sessionToken',
+  syncDiagnostics: 'cleanTab.syncDiagnostics',
 } as const

@@ -275,15 +275,17 @@ const resolveTodoConflict = async (userId: string, conflict: WorkspaceConflictEr
   const currentTodo = current.find(todo => todo.id === local.id)
   if (currentTodo && !sameTodoContent(currentTodo, local)) return
 
-  const conflictCopy = 'text' in local
-    ? await workspaceRepository.createTodoConflict(userId, local)
-    : null
+  // 本地版本另存为冲突副本，交由用户在同步面板中决定保留哪一版。
+  // 副本不进入常规列表（服务端按 conflict_of 过滤），因此不再写回本地 store。
+  if ('text' in local) {
+    await workspaceRepository.createTodoConflict(userId, local)
+  }
+
   const remoteTodos = await workspaceRepository.listTodos(userId)
   const remote = remoteTodos.find((todo: Todo) => todo.id === local.id)
   rememberTodoVersions(userId, remote ? [remote] : [])
   const next = current.filter(todo => todo.id !== local.id)
   if (remote) next.push(remote)
-  if (conflictCopy) next.push(conflictCopy)
   useWorkspaceStore.getState().replaceTodosFromSync(next)
 }
 
@@ -311,13 +313,12 @@ const resolveNoteConflict = async (userId: string, conflict: WorkspaceConflictEr
   const current = useWorkspaceStore.getState().notes
   const currentNote = current.find(note => note.id === local.id)
   if (currentNote && !sameNoteContent(currentNote, local)) return
-  const conflictCopy = await workspaceRepository.createNoteConflict(userId, local)
+  await workspaceRepository.createNoteConflict(userId, local)
   const remoteNotes = await workspaceRepository.listNotes(userId)
   const remote = remoteNotes.find((note: Note) => note.id === local.id)
   rememberNoteVersions(userId, remote ? [remote] : [])
   const next = current.filter(note => note.id !== local.id)
   if (remote) next.push(remote)
-  if (conflictCopy) next.push(conflictCopy)
   useWorkspaceStore.getState().replaceNotesFromSync(next)
 }
 

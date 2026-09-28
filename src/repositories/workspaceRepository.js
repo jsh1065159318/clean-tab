@@ -26,6 +26,7 @@ const toTodo = row => ({
   tag: row.tag,
   subtasks: Array.isArray(row.subtasks) ? row.subtasks : [],
   dueDate: row.due_at || undefined,
+  conflictOf: row.conflict_of || undefined,
   updatedAt: row.updated_at,
   version: row.version,
 });
@@ -171,5 +172,24 @@ export const workspaceRepository = {
     } catch (error) {
       throw toConflictError({ resource: '快捷方式', localItems: items, error, mapRemote: toBookmark });
     }
+  },
+
+  // 冲突副本不进入常规列表，需要单独查询。
+  // 每条返回副本与它覆盖的原条目；原条目可能为 null（已被删除）。
+  async listConflicts(_userId) {
+    const payload = await apiRequest('/workspace/conflicts');
+    const todoEntries = Array.isArray(payload?.todos) ? payload.todos : [];
+    const noteEntries = Array.isArray(payload?.notes) ? payload.notes : [];
+
+    return {
+      todos: todoEntries.map(entry => ({
+        copy: toTodo(entry.copy),
+        original: entry.original ? toTodo(entry.original) : null,
+      })),
+      notes: noteEntries.map(entry => ({
+        copy: toNote(entry.copy),
+        original: entry.original ? toNote(entry.original) : null,
+      })),
+    };
   },
 };

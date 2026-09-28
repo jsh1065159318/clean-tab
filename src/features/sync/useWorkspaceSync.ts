@@ -5,14 +5,22 @@ import { settingsStore } from 'features/store/stores/settingsStore'
 import { useWorkspaceStore } from 'features/store/workspaceStore'
 import type { Note, Todo } from 'features/store/workspaceStore'
 import { useToastStore } from 'features/toast/toastStore'
+import { useSyncDiagnostics } from './syncDiagnosticsStore'
 import { workspaceRepository } from 'repositories/workspaceRepository'
 import { workspaceRealtimeService } from 'services/workspaceRealtimeService'
 import { workspaceSyncService } from 'services/workspaceSyncService'
 import { pendingNoteDeletionService } from 'services/pendingNoteDeletionService'
 import { pendingTodoDeletionService } from 'services/pendingTodoDeletionService'
 import type { FlushResult, SettingsPayload } from 'services/workspaceSyncService'
+import type { SyncState } from './syncState'
 
-export type SyncState = 'local' | 'syncing' | 'synced' | 'offline' | 'queued' | 'error'
+export type { SyncState } from './syncState'
+
+export interface WorkspaceSyncController {
+  syncState: SyncState
+  // 手动重试：走与自动同步相同的收尾逻辑，保证页头状态标签与诊断面板同步更新。
+  retry: () => Promise<void>
+}
 
 interface SettingsSnapshot {
   theme?: string
@@ -44,7 +52,7 @@ const toSettingsPayload = (settings: SettingsSnapshot): SettingsPayload => ({
 
 const sameNoteContent = (left: Note, right: Note) => left.title === right.title && left.content === right.content
 
-export function useWorkspaceSync(): SyncState {
+export function useWorkspaceSync(): WorkspaceSyncController {
   const auth = useAuth()
   const settings = useSettings()
   const authUser = auth.user as AuthUser | null
@@ -66,12 +74,10 @@ export function useWorkspaceSync(): SyncState {
   const handledShortcutEpochRef = useRef(0)
   const previousNotesRef = useRef(notes)
 
-  const applyFlushResult = useCallback((result: FlushResult) => {
-    if (result.conflicts > 0) {
-      setSyncState('synced')
-      showToast('检测到多设备修改，已保留本地内容并完成合并', 'info')
-      return
-    }
+  const applyFlushResult = useCallback((userId: string, result: FlushResult) => {
+    const diagnostics = useSyncDiagnostics.getState()
+    void diagnostics.refresh(userId)
+
     if (result.offline) {
       setSyncState('offline')
       return
@@ -80,13 +86,25 @@ export function useWorkspaceSync(): SyncState {
       setSyncState('queued')
       return
     }
+
     setSyncState('synced')
+    diagnostics.recordSuccess()
+    if (result.conflicts > 0) {
+      showToast('检测到多设备修改，已保留本地内容并生成冲突副本', 'info')
+    }
   }, [showToast])
+
+  const reportSyncFailure = useCallback((message: string, error: unknown) => {
+    setSyncState('queued')
+    useSyncDiagnostics.getState().recordFailure(error instanceof Error ? error.message : String(error))
+    console.error(message, error)
+  }, [])
 
   useEffect(() => {
     if (!userId) {
       readyUserRef.current = null
       setSyncState('local')
+      useSyncDiagnostics.getState().reset()
       return
     }
 
@@ -201,7 +219,7 @@ export function useWorkspaceSync(): SyncState {
         await enqueueLocalChanges()
         readyUserRef.current = userId
         await enqueueLocalChanges()
-        applyFlushResult(await workspaceSyncService.flush(userId))
+        applyFlushResult(userId, await workspaceSyncService.flush(userId))
       } catch (error) {
         const currentWorkspace = useWorkspaceStore.getState()
         const currentSettings = settingsStore.getSnapshot()
@@ -221,6 +239,7 @@ export function useWorkspaceSync(): SyncState {
           workspaceSyncService.enqueueShortcuts(userId, currentWorkspace.shortcuts),
           workspaceSyncService.enqueueSettings(userId, toSettingsPayload(currentSettings)),
         ])
+        useSyncDiagnostics.getState().recordFailure(error instanceof Error ? error.message : String(error))
         if (!cancelled) {
           readyUserRef.current = userId
           setSyncState('queued')
@@ -250,14 +269,13 @@ export function useWorkspaceSync(): SyncState {
           workspaceSyncService.enqueueTodoDeletionMarker(userId, deletion, todos)
         )))
         setSyncState(navigator.onLine ? 'syncing' : 'offline')
-        applyFlushResult(await workspaceSyncService.flush(userId))
+        applyFlushResult(userId, await workspaceSyncService.flush(userId))
       } catch (error) {
-        setSyncState('queued')
-        console.error('Failed to sync todos:', error)
+        reportSyncFailure('Failed to sync todos:', error)
       }
     }, 500)
     return () => window.clearTimeout(timer)
-  }, [applyFlushResult, todoSyncEpoch, todos, userId])
+  }, [applyFlushResult, reportSyncFailure, todoSyncEpoch, todos, userId])
 
   useEffect(() => {
     const previousNotes = previousNotesRef.current
@@ -284,14 +302,13 @@ export function useWorkspaceSync(): SyncState {
           )),
         ])
         setSyncState(navigator.onLine ? 'syncing' : 'offline')
-        applyFlushResult(await workspaceSyncService.flush(userId))
+        applyFlushResult(userId, await workspaceSyncService.flush(userId))
       } catch (error) {
-        setSyncState('queued')
-        console.error('Failed to sync notes:', error)
+        reportSyncFailure('Failed to sync notes:', error)
       }
     }, 500)
     return () => window.clearTimeout(timer)
-  }, [applyFlushResult, notes, notesSyncEpoch, userId])
+  }, [applyFlushResult, notes, notesSyncEpoch, reportSyncFailure, userId])
 
   useEffect(() => {
     if (!userId || readyUserRef.current !== userId) return
@@ -304,14 +321,13 @@ export function useWorkspaceSync(): SyncState {
       try {
         await workspaceSyncService.enqueueShortcuts(userId, shortcuts)
         setSyncState(navigator.onLine ? 'syncing' : 'offline')
-        applyFlushResult(await workspaceSyncService.flush(userId))
+        applyFlushResult(userId, await workspaceSyncService.flush(userId))
       } catch (error) {
-        setSyncState('queued')
-        console.error('Failed to sync shortcuts:', error)
+        reportSyncFailure('Failed to sync shortcuts:', error)
       }
     }, 500)
     return () => window.clearTimeout(timer)
-  }, [applyFlushResult, shortcutSyncEpoch, shortcuts, userId])
+  }, [applyFlushResult, reportSyncFailure, shortcutSyncEpoch, shortcuts, userId])
 
   useEffect(() => {
     if (!userId || readyUserRef.current !== userId) return
@@ -320,14 +336,13 @@ export function useWorkspaceSync(): SyncState {
       try {
         await workspaceSyncService.enqueueSettings(userId, toSettingsPayload(settings))
         setSyncState(navigator.onLine ? 'syncing' : 'offline')
-        applyFlushResult(await workspaceSyncService.flush(userId))
+        applyFlushResult(userId, await workspaceSyncService.flush(userId))
       } catch (error) {
-        setSyncState('queued')
-        console.error('Failed to sync settings:', error)
+        reportSyncFailure('Failed to sync settings:', error)
       }
     }, 500)
     return () => window.clearTimeout(timer)
-  }, [applyFlushResult, settings, userId])
+  }, [applyFlushResult, reportSyncFailure, settings, userId])
 
   useEffect(() => {
     if (!userId) return undefined
@@ -340,10 +355,9 @@ export function useWorkspaceSync(): SyncState {
       if (!userId) return
       setSyncState('syncing')
       try {
-        applyFlushResult(await workspaceSyncService.flush(userId))
+        applyFlushResult(userId, await workspaceSyncService.flush(userId))
       } catch (error) {
-        setSyncState('queued')
-        console.error('Failed to resume workspace sync:', error)
+        reportSyncFailure('Failed to resume workspace sync:', error)
       }
     }
     window.addEventListener('offline', handleOffline)
@@ -352,7 +366,17 @@ export function useWorkspaceSync(): SyncState {
       window.removeEventListener('offline', handleOffline)
       window.removeEventListener('online', handleOnline)
     }
-  }, [applyFlushResult, userId])
+  }, [applyFlushResult, reportSyncFailure, userId])
 
-  return syncState
+  const retry = useCallback(async () => {
+    if (!userId) return
+    setSyncState('syncing')
+    try {
+      applyFlushResult(userId, await workspaceSyncService.flush(userId))
+    } catch (error) {
+      reportSyncFailure('Failed to retry workspace sync:', error)
+    }
+  }, [applyFlushResult, reportSyncFailure, userId])
+
+  return { syncState, retry }
 }

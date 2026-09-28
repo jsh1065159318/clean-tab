@@ -11,6 +11,8 @@ export interface CloudAuthState {
 export interface CloudState {
   auth: CloudAuthState
   syncState: SyncState
+  // 由 useWorkspaceSync 提供，手动重试复用与自动同步相同的收尾逻辑。
+  retry: () => Promise<void>
 }
 
 interface CloudBridgeProps {
@@ -19,11 +21,11 @@ interface CloudBridgeProps {
 
 export function CloudBridge({ onChange }: CloudBridgeProps) {
   const auth = useAuth() as CloudAuthState
-  const syncState = useWorkspaceSync()
+  const { syncState, retry } = useWorkspaceSync()
 
   useEffect(() => {
-    onChange({ auth, syncState })
-  }, [auth, onChange, syncState])
+    onChange({ auth, retry, syncState })
+  }, [auth, onChange, retry, syncState])
 
   return null
 }

@@ -270,6 +270,260 @@ textarea:focus-visible,
   font-size: 15px;
 }
 
+// 同步状态标签同时是面板的触发按钮，需抹掉浏览器默认按钮样式。
+button.sync-status {
+  border: 0;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+button.sync-status:hover {
+  color: var(--text);
+}
+
+.sync-menu-wrap {
+  position: relative;
+}
+
+.sync-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  scrollbar-width: thin;
+}
+
+.sync-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.sync-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sync-panel-head strong {
+  font-size: 13px;
+}
+
+.sync-panel-action {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sync-panel-action:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.sync-panel-action:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.sync-panel-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.sync-panel-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sync-panel-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sync-panel-facts dd {
+  margin: 0;
+  font-size: 12px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.sync-panel-facts .is-error dd {
+  color: #dc5263;
+}
+
+.sync-panel-hint {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  text-align: center;
+}
+
+.sync-panel-hint svg {
+  font-size: 22px;
+  color: var(--muted);
+}
+
+.sync-panel-hint p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.sync-panel-primary {
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #6366f1;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sync-panel-conflicts {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.sync-panel-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sync-panel-section-title svg {
+  font-size: 15px;
+  color: #d9822b;
+}
+
+.sync-panel-section-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.conflict-card {
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.conflict-card-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.conflict-card-tag {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-solid) 60%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.conflict-card-compare {
+  display: grid;
+  gap: 8px;
+}
+
+.conflict-card-compare > div {
+  display: grid;
+  gap: 3px;
+}
+
+.conflict-card-compare span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.conflict-card-compare p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.conflict-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.conflict-card-actions button {
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--surface-solid);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.conflict-card-actions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.conflict-card-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sync-panel-link {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sync-panel-link:hover {
+  color: var(--text);
+}
+
 .sync-syncing svg,
 .sync-queued svg {
   animation: spin 1.1s linear infinite;

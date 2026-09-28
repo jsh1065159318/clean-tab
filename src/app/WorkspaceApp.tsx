@@ -15,6 +15,7 @@ import {
   MdSync,
   MdTimer,
 } from 'react-icons/md'
+import type { IconType } from 'react-icons'
 import { appConfig } from 'config/app'
 import { backendConfig } from 'config/backend'
 import { STORAGE_KEYS } from 'constants/storageKeys'
@@ -27,6 +28,9 @@ import { settingsStore } from 'features/store/stores/settingsStore'
 import { useWorkspaceStore } from 'features/store/workspaceStore'
 import type { Shortcut } from 'features/store/workspaceStore'
 import type { SyncState } from 'features/sync/useWorkspaceSync'
+import { SyncStatusPanel } from 'features/sync/SyncStatusPanel'
+import { syncLabels } from 'features/sync/syncState'
+import { usePopover } from 'features/hooks/usePopover'
 import type { CloudState } from 'features/sync/CloudBridge'
 import { removeTodo } from 'features/tasks/removeTodo'
 import { ToastViewport } from 'features/toast/ToastViewport'
@@ -71,16 +75,9 @@ const navigationItems = [
   { id: 'tools', label: '工具', icon: MdBuild },
 ] as const
 
-const syncLabels: Record<SyncState, string> = {
-  local: '仅本地保存',
-  syncing: '本地已存 · 同步中',
-  synced: '本地与云端已同步',
-  offline: '本地已存 · 当前离线',
-  queued: '本地已存 · 等待同步',
-  error: '本地已存 · 同步异常',
-}
+const noopRetry = () => Promise.resolve()
 
-const syncIcons = {
+const syncIcons: Record<SyncState, IconType> = {
   local: MdCloudOff,
   syncing: MdSync,
   synced: MdCloudDone,
@@ -99,6 +96,7 @@ export default function WorkspaceApp() {
   const [cloudState, setCloudState] = useState<CloudState>(() => ({
     auth: { status: backendConfig.isConfigured ? 'loading' : 'unconfigured', user: null },
     syncState: 'local',
+    retry: noopRetry,
   }))
   const auth = cloudState.auth
   const authUser = auth.user as AuthUser | null
@@ -116,8 +114,8 @@ export default function WorkspaceApp() {
   }, [showToast])
   const focusTimer = useFocusTimer(handleFocusComplete)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const accountMenuRef = useRef<HTMLDivElement>(null)
-  const accountButtonRef = useRef<HTMLButtonElement>(null)
+  const accountMenu = usePopover<HTMLDivElement, HTMLButtonElement>()
+  const syncMenu = usePopover<HTMLDivElement, HTMLButtonElement>()
   const shortcutEditorTriggerRef = useRef<HTMLElement | null>(null)
   const [view, setView] = useState<View>('home')
   const [focusTaskId, setFocusTaskId] = useState(() => storageService.getJSON<string>(STORAGE_KEYS.focusTaskId, ''))
@@ -128,7 +126,6 @@ export default function WorkspaceApp() {
   const [shortcutEditorOpen, setShortcutEditorOpen] = useState(false)
   const [editingShortcut, setEditingShortcut] = useState<Shortcut | null>(null)
   const [authModalOpen, setAuthModalOpen] = useState(false)
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const captureHandledRef = useRef(false)
   const [favoriteToolIds, setFavoriteToolIds] = useState<string[]>(() => {
@@ -220,24 +217,6 @@ export default function WorkspaceApp() {
     const labels = { todos: '任务', notes: '笔记', shortcuts: '快捷方式' } as const
     showToast(`已同步其他标签页的${labels[resource]}修改`, 'info')
   }), [showToast])
-
-  useEffect(() => {
-    if (!accountMenuOpen) return undefined
-    const closeOnOutside = (event: PointerEvent) => {
-      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false)
-    }
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      setAccountMenuOpen(false)
-      accountButtonRef.current?.focus()
-    }
-    document.addEventListener('pointerdown', closeOnOutside)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutside)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [accountMenuOpen])
 
   useEffect(() => {
     if (focusTaskId && !todos.some(todo => todo.id === focusTaskId && !todo.done)) updateFocusTask('')
@@ -558,7 +537,7 @@ export default function WorkspaceApp() {
   const accountAction = () => {
     if (auth.status === 'loading') return
     if (auth.status === 'authenticated') {
-      setAccountMenuOpen(current => !current)
+      accountMenu.toggle()
     } else if (auth.status === 'unconfigured') {
       setView('settings')
     } else {
@@ -567,7 +546,7 @@ export default function WorkspaceApp() {
   }
 
   const logout = async () => {
-    setAccountMenuOpen(false)
+    accountMenu.close()
     let formatError = (_error: unknown) => '退出失败，请稍后重试'
     try {
       const { authService, getAuthErrorMessage } = await import('services/authService')
@@ -616,10 +595,39 @@ export default function WorkspaceApp() {
         </nav>
 
         <div className="header-actions">
-          <span className={`sync-status sync-${syncState}`} title={syncLabels[syncState]}>
-            <SyncIcon />
-            <span>{syncLabels[syncState]}</span>
-          </span>
+          <div className="sync-menu-wrap" ref={syncMenu.containerRef}>
+            <button
+              ref={syncMenu.triggerRef}
+              className={`sync-status sync-${syncState}`}
+              type="button"
+              title={syncLabels[syncState]}
+              aria-label={`同步状态：${syncLabels[syncState]}`}
+              aria-expanded={syncMenu.open}
+              aria-controls="sync-panel"
+              onClick={syncMenu.toggle}
+            >
+              <SyncIcon />
+              <span>{syncLabels[syncState]}</span>
+            </button>
+            {syncMenu.open && (
+              <div className="sync-popover" id="sync-panel">
+                <SyncStatusPanel
+                  syncState={syncState}
+                  signedIn={auth.status === 'authenticated'}
+                  userId={authUser?.id ?? ''}
+                  onRetry={cloudState.retry}
+                  onLogin={() => {
+                    syncMenu.close()
+                    setAuthModalOpen(true)
+                  }}
+                  onOpenSettings={() => {
+                    syncMenu.close()
+                    setView('settings')
+                  }}
+                />
+              </div>
+            )}
+          </div>
           <button className="icon-button" type="button" onClick={toggleTheme} aria-label="切换主题">
             {resolvedTheme === 'dark' ? <MdLightMode /> : <MdDarkMode />}
           </button>
@@ -629,11 +637,11 @@ export default function WorkspaceApp() {
           <button className="icon-button" type="button" onClick={() => setView('settings')} aria-label="打开设置">
             <MdSettings />
           </button>
-          <div className="account-menu-wrap" ref={accountMenuRef}>
-            <button ref={accountButtonRef} className="avatar-button" disabled={auth.status === 'loading'} type="button" onClick={accountAction} aria-label={auth.status === 'loading' ? '正在恢复登录状态' : '账户'} aria-expanded={accountMenuOpen} aria-controls="account-popover">
+          <div className="account-menu-wrap" ref={accountMenu.containerRef}>
+            <button ref={accountMenu.triggerRef} className="avatar-button" disabled={auth.status === 'loading'} type="button" onClick={accountAction} aria-label={auth.status === 'loading' ? '正在恢复登录状态' : '账户'} aria-expanded={accountMenu.open} aria-controls="account-popover">
               {displayName.slice(0, 1) || <MdPersonOutline />}
             </button>
-            {accountMenuOpen && auth.status === 'authenticated' && (
+            {accountMenu.open && auth.status === 'authenticated' && (
               <div className="account-popover" id="account-popover">
                 <strong>{displayName || '我的账号'}</strong>
                 <span>{authUser?.email}</span>
