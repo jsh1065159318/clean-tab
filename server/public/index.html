@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="清爽标签页：一个专注搜索、常用入口、今日重点和随手记录的浏览器新标签页，默认完全本地运行。" />
+    <meta name="color-scheme" content="light dark" />
+    <title>清爽标签页 · 下载</title>
+    <link rel="icon" type="image/png" href="{{ICON}}" />
+    <link rel="stylesheet" href="/landing.css" />
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="{{ICON}}" alt="" width="30" height="30" />
+        <strong>清爽标签页</strong>
+      </div>
+      <span class="version">v{{VERSION}}</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="kicker">浏览器新标签页扩展</p>
+        <h1>把新标签页还给自己</h1>
+        <p class="lead">
+          一个专注搜索、常用入口、今日重点和随手记录的浏览器新标签页。
+          默认完全本地运行，数据存在你自己的设备上；需要多设备同步时，也可以连接自建后端。
+        </p>
+        {{PACKAGES}}
+      </section>
+
+      <section class="section">
+        <h2>它做什么</h2>
+        <ul class="feature-grid">
+          <li>
+            <h3>搜索与网址直达</h3>
+            <p>一个输入框，输入关键词直接搜索，输入网址直接打开，按 <kbd>/</kbd> 随时聚焦。</p>
+          </li>
+          <li>
+            <h3>快捷方式</h3>
+            <p>常用站点一屏可达，可拖拽排序；浏览网页时用右键菜单把当前页面直接存进来。</p>
+          </li>
+          <li>
+            <h3>今日重点</h3>
+            <p>首页只展示三条未完成任务，不堆砌模块，让新标签页保持清爽。</p>
+          </li>
+          <li>
+            <h3>随手记录</h3>
+            <p>多笔记列表，边写边存。笔记正文存放于本地 IndexedDB，容量不受限制。</p>
+          </li>
+          <li>
+            <h3>20 个本地工具</h3>
+            <p>JSON 格式化、正则测试、哈希、时间戳、颜色与单位换算等，全部离线可用。</p>
+          </li>
+          <li>
+            <h3>专注模式</h3>
+            <p>内置番茄钟，可关联到具体任务，计时跨页面与刷新保持。</p>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>安装方式</h2>
+        <p class="section-lead">
+          安装包是开发者版本，未上架浏览器商店，需要手动加载。下载后请先解压。
+        </p>
+        <div class="install-grid">
+          <div class="install-card">
+            <h3>Chrome / Edge</h3>
+            <ol>
+              <li>解压下载的 ZIP 到任意目录</li>
+              <li>地址栏打开 <code>chrome://extensions</code>（Edge 为 <code>edge://extensions</code>）</li>
+              <li>打开右上角的「开发者模式」</li>
+              <li>点「加载已解压的扩展程序」，选中解压出的目录</li>
+              <li>打开一个新标签页即可看到效果</li>
+            </ol>
+          </div>
+          <div class="install-card">
+            <h3>Firefox</h3>
+            <ol>
+              <li>解压下载的 ZIP 到任意目录</li>
+              <li>地址栏打开 <code>about:debugging#/runtime/this-firefox</code></li>
+              <li>点「临时载入附加组件」</li>
+              <li>选中解压目录里的 <code>manifest.json</code></li>
+            </ol>
+            <p class="note">Firefox 的临时扩展在浏览器关闭后会失效，下次打开需重新载入。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>关于多设备同步</h2>
+        {{SYNC_HINT}}
+        <p class="note">
+          无论是否登录，搜索、快捷方式、任务、笔记、专注与全部工具都不依赖网络。
+          断网、后端不可用或未登录时，修改会先写入本地并在恢复后自动补传。
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>分享给他人</h2>
+        {{SHARE}}
+      </section>
+    </main>
+
+    <footer>
+      <p>版本 {{VERSION}} · 构建于 {{BUILT_AT}}</p>
+      <p>不收集使用数据，不含统计与遥测代码。</p>
+    </footer>
+  </body>
+</html>

@@ -1,8 +1,15 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 try {
   process.loadEnvFile?.();
 } catch {
   // 未提供 .env 时忽略，环境变量由部署环境注入。
 }
+
+// server/src/env.js → server/ → 仓库根目录
+const serverRoot = fileURLToPath(new URL('..', import.meta.url));
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 const readPositiveNumber = (name, fallback) => {
   const raw = process.env[name];
@@ -33,4 +40,9 @@ export const env = {
   signupEnabled: process.env.SIGNUP_ENABLED !== 'false',
   corsOrigins,
   allowAllOrigins: corsOrigins.includes('*'),
+
+  // 落地页静态资源目录。
+  publicDir: path.join(serverRoot, 'public'),
+  // 扩展构建产物目录，`npm run build` 的输出。供落地页提供下载。
+  extensionDir: process.env.EXTENSION_DIR?.trim() || path.join(repositoryRoot, 'build'),
 };

@@ -3,6 +3,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { env } from './env.js';
 import { errorBody } from './lib/http.js';
 import { authRoutes } from './routes/auth.js';
+import { siteRoutes } from './routes/site.js';
 import { workspaceRoutes } from './routes/workspace.js';
 
 export const app = new Hono();
@@ -37,6 +38,8 @@ app.use('*', async (c, next) => {
 
 app.get('/health', c => c.json({ ok: true, time: new Date().toISOString() }));
 
+// 落地页与安装包下载，供他人访问后直接获取扩展。
+app.route('/', siteRoutes);
 app.route('/auth', authRoutes);
 app.route('/workspace', workspaceRoutes);
 
