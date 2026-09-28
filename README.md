@@ -81,6 +81,8 @@ npm run build
 - `build/clean-tab-chrome-0.1.0.zip`：Chromium 发布包
 - `build/clean-tab-firefox-0.1.0.zip`：Firefox 发布包
 
+构建产物同时由后端作为下载页对外提供。启动后端后访问 `http://localhost:8787/` 即可下载安装包并查看分浏览器的安装步骤，便于把地址分享给他人。详见 [`server/README.md`](server/README.md)。
+
 ### Chrome / Edge
 
 1. 打开 `chrome://extensions` 或 Edge 的 `edge://extensions`。
