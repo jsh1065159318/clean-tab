@@ -15,7 +15,7 @@
  * - `npm run build` - Production build for all browsers
  * - `npm run dev` - Development server with HMR
  */
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 import fs from 'fs';
@@ -87,10 +87,10 @@ const copyIconFiles = (targetDir, files) => {
   });
 };
 
-const writeBuildManifest = (sourceFile, targetFile) => {
+const writeBuildManifest = (sourceFile, targetFile, apiBaseUrl) => {
   const manifest = JSON.parse(fs.readFileSync(resolveRoot(sourceFile), 'utf8'));
   manifest.version = pkg.version;
-  const configuredUrl = process.env.VITE_API_BASE_URL?.trim();
+  const configuredUrl = apiBaseUrl?.trim();
   if (configuredUrl) {
     const origin = new URL(configuredUrl).origin;
     // 同步改为轮询后不再建立 WebSocket，connect-src 只需放行 API 域名本身。
@@ -133,7 +133,7 @@ const validateExtensionBuild = (buildPath, zipPath) => {
   }
 };
 
-const prepareBuilds = isProd => ({
+const prepareBuilds = (isProd, apiBaseUrl) => ({
   name: 'prepareBuilds',
   closeBundle() {
     if (isProd) {
@@ -150,7 +150,7 @@ const prepareBuilds = isProd => ({
       fs.mkdirSync(chromeBuildPath, { recursive: true });
 
       // Copy manifest and background script
-      writeBuildManifest('manifest/chrome.json', path.resolve(chromeBuildPath, 'manifest.json'));
+      writeBuildManifest('manifest/chrome.json', path.resolve(chromeBuildPath, 'manifest.json'), apiBaseUrl);
       fs.copyFileSync(
         resolveRoot('manifest/background.js'),
         path.resolve(chromeBuildPath, 'background.js'),
@@ -168,7 +168,7 @@ const prepareBuilds = isProd => ({
       fs.mkdirSync(firefoxBuildPath, { recursive: true });
 
       // Copy manifest and background script
-      writeBuildManifest('manifest/firefox.json', path.resolve(firefoxBuildPath, 'manifest.json'));
+      writeBuildManifest('manifest/firefox.json', path.resolve(firefoxBuildPath, 'manifest.json'), apiBaseUrl);
       fs.copyFileSync(
         resolveRoot('manifest/background.js'),
         path.resolve(firefoxBuildPath, 'background.js'),
@@ -202,10 +202,14 @@ const prepareBuilds = isProd => ({
   },
 });
 
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
   const isProd = command === 'build';
+  // 配置阶段读取 .env.local 必须显式调用 loadEnv：Vite 只把 VITE_ 前缀变量注入
+  // import.meta.env，不会写入 process.env。loadEnv 会合并 shell 传入的同名变量，
+  // 因此 `VITE_API_BASE_URL=... npm run build` 这种临时覆盖方式依然有效。
+  const apiBaseUrl = loadEnv(mode, rootDir, 'VITE_').VITE_API_BASE_URL?.trim() || '';
   return {
-    plugins: [react(), performanceBudget(), prepareBuilds(isProd), progress()],
+    plugins: [react(), performanceBudget(), prepareBuilds(isProd, apiBaseUrl), progress()],
     server: { open: true, hmr: { protocol: 'ws', host: 'localhost' } },
     build: {
       target: 'esnext', // Use modern JavaScript features
