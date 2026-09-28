@@ -1,0 +1,42 @@
+# 清爽标签页同步后端 —— Nginx 反向代理示例
+#
+# 安装：
+#   sudo cp deploy/nginx.conf.example /etc/nginx/conf.d/clean-tab.conf
+#   替换 api.example.com 与证书路径后：sudo nginx -t && sudo systemctl reload nginx
+#
+# 说明：同步已改为客户端轮询，不再建立 WebSocket，因此无需配置 Upgrade/Connection 头。
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name api.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/api.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.example.com/privkey.pem;
+
+    # 与后端 2 MB 请求体上限保持一致，留出协议开销余量。
+    client_max_body_size 3m;
+
+    # 仅暴露 API，不提供任何静态内容。
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+        proxy_connect_timeout 5s;
+    }
+
+    access_log /var/log/nginx/clean-tab.access.log;
+    error_log  /var/log/nginx/clean-tab.error.log;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.example.com;
+    return 301 https://$host$request_uri;
+}
