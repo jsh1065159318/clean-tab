@@ -1,0 +1,208 @@
+import type { IconType } from 'react-icons'
+import {
+  MdAccessTime,
+  MdCalculate,
+  MdCode,
+  MdDataObject,
+  MdDevices,
+  MdDifference,
+  MdFingerprint,
+  MdHtml,
+  MdHttp,
+  MdLink,
+  MdLockOutline,
+  MdNumbers,
+  MdOutlineTextFields,
+  MdPalette,
+  MdPassword,
+  MdStraighten,
+  MdSwapHoriz,
+  MdTableChart,
+  MdToken,
+  MdTransform,
+} from 'react-icons/md'
+
+export type ToolCategoryId = 'all' | 'development' | 'encoding' | 'text' | 'security' | 'calculation' | 'data' | 'web'
+
+export interface ToolDefinition {
+  id: string
+  name: string
+  description: string
+  category: Exclude<ToolCategoryId, 'all'>
+  icon: IconType
+  keywords: string[]
+}
+
+export const toolCategories: Array<{ id: ToolCategoryId; label: string }> = [
+  { id: 'all', label: '全部' },
+  { id: 'development', label: '开发' },
+  { id: 'encoding', label: '编码转换' },
+  { id: 'text', label: '文本' },
+  { id: 'security', label: '安全' },
+  { id: 'calculation', label: '计算' },
+  { id: 'data', label: '数据' },
+  { id: 'web', label: '网络与设备' },
+]
+
+export const tools: ToolDefinition[] = [
+  {
+    id: 'json-formatter',
+    name: 'JSON 格式化',
+    description: '格式化、校验或压缩 JSON 数据。',
+    category: 'development',
+    icon: MdDataObject,
+    keywords: ['json', 'format', 'minify', '格式化'],
+  },
+  {
+    id: 'regex-tester',
+    name: '正则测试',
+    description: '快速验证表达式并查看匹配结果。',
+    category: 'development',
+    icon: MdCode,
+    keywords: ['regex', 'regexp', '正则', '匹配'],
+  },
+  {
+    id: 'base64',
+    name: 'Base64 编解码',
+    description: '在文本与 Base64 之间双向转换。',
+    category: 'encoding',
+    icon: MdTransform,
+    keywords: ['base64', 'encode', 'decode', '编码'],
+  },
+  {
+    id: 'url-codec',
+    name: 'URL 编解码',
+    description: '编码或还原 URL 参数与特殊字符。',
+    category: 'encoding',
+    icon: MdLink,
+    keywords: ['url', 'uri', 'encode', 'decode'],
+  },
+  {
+    id: 'text-statistics',
+    name: '文本统计',
+    description: '统计字符、字数、单词和行数。',
+    category: 'text',
+    icon: MdOutlineTextFields,
+    keywords: ['text', 'count', 'words', '字数'],
+  },
+  {
+    id: 'case-converter',
+    name: '大小写转换',
+    description: '转换大写、小写、驼峰和短横线格式。',
+    category: 'text',
+    icon: MdNumbers,
+    keywords: ['case', 'camel', 'kebab', '大小写'],
+  },
+  {
+    id: 'sha256',
+    name: 'SHA-256 哈希',
+    description: '在浏览器本地生成文本摘要。',
+    category: 'security',
+    icon: MdLockOutline,
+    keywords: ['sha256', 'hash', 'digest', '哈希'],
+  },
+  {
+    id: 'uuid',
+    name: 'UUID 生成器',
+    description: '批量生成标准 UUID v4。',
+    category: 'security',
+    icon: MdFingerprint,
+    keywords: ['uuid', 'guid', 'random', '随机'],
+  },
+  {
+    id: 'timestamp',
+    name: '时间戳转换',
+    description: '在 Unix 时间戳与本地时间之间转换。',
+    category: 'calculation',
+    icon: MdAccessTime,
+    keywords: ['timestamp', 'unix', 'date', '时间戳'],
+  },
+  {
+    id: 'percentage',
+    name: '百分比计算',
+    description: '计算占比、增减幅度和百分数结果。',
+    category: 'calculation',
+    icon: MdCalculate,
+    keywords: ['percent', 'percentage', 'ratio', '百分比'],
+  },
+  {
+    id: 'password-generator',
+    name: '密码生成器',
+    description: '生成指定长度和字符类型的安全随机密码。',
+    category: 'security',
+    icon: MdPassword,
+    keywords: ['password', 'random', 'secure', '密码', '随机'],
+  },
+  {
+    id: 'jwt-decoder',
+    name: 'JWT 解析',
+    description: '在本地解析 JWT 的 Header、Payload 和过期时间。',
+    category: 'security',
+    icon: MdToken,
+    keywords: ['jwt', 'token', 'decode', '令牌'],
+  },
+  {
+    id: 'color-converter',
+    name: '颜色转换',
+    description: '在 HEX、RGB 和 HSL 颜色格式之间转换。',
+    category: 'development',
+    icon: MdPalette,
+    keywords: ['color', 'hex', 'rgb', 'hsl', '颜色'],
+  },
+  {
+    id: 'number-base',
+    name: '进制转换',
+    description: '转换二进制、八进制、十进制与十六进制。',
+    category: 'calculation',
+    icon: MdSwapHoriz,
+    keywords: ['binary', 'hex', 'decimal', '进制'],
+  },
+  {
+    id: 'unit-converter',
+    name: '单位换算',
+    description: '快速换算长度、重量和温度单位。',
+    category: 'calculation',
+    icon: MdStraighten,
+    keywords: ['unit', 'length', 'weight', 'temperature', '单位'],
+  },
+  {
+    id: 'csv-json',
+    name: 'CSV / JSON 转换',
+    description: '在表格 CSV 与 JSON 数组之间双向转换。',
+    category: 'data',
+    icon: MdTableChart,
+    keywords: ['csv', 'json', 'table', '数据'],
+  },
+  {
+    id: 'html-entities',
+    name: 'HTML 实体编解码',
+    description: '编码或还原 HTML 特殊字符与实体。',
+    category: 'encoding',
+    icon: MdHtml,
+    keywords: ['html', 'entity', 'escape', '实体'],
+  },
+  {
+    id: 'url-parser',
+    name: 'URL 解析器',
+    description: '拆解 URL 的协议、域名、路径和查询参数。',
+    category: 'web',
+    icon: MdHttp,
+    keywords: ['url', 'host', 'query', '网址', '参数'],
+  },
+  {
+    id: 'device-information',
+    name: '设备信息',
+    description: '查看浏览器、屏幕、语言和平台信息。',
+    category: 'web',
+    icon: MdDevices,
+    keywords: ['device', 'browser', 'screen', '设备', '浏览器'],
+  },
+  {
+    id: 'text-diff',
+    name: '文本对比',
+    description: '按行对比两段文本并标记新增与删除内容。',
+    category: 'text',
+    icon: MdDifference,
+    keywords: ['diff', 'compare', 'text', '对比', '差异'],
+  },
+]

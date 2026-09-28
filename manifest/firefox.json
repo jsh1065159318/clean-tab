@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "清爽标签页",
-  "description": "一个干净、可扩展的新标签页扩展前端模板。",
+  "description": "一个专注搜索、常用入口、今日任务和随手记录的清爽浏览器新标签页。",
   "version": "0.1.0",
-  "permissions": ["storage"],
+  "permissions": ["contextMenus"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self';"
+  },
   "action": {
     "default_icon": "icons/128x128.png"
   },
@@ -17,7 +20,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "{11111111-2222-4333-8444-555555555555}"
+      "id": "{7f7c8e68-32cc-4ef3-b651-8d1a60db0ac4}"
     }
   }
 }

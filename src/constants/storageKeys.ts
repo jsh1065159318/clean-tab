@@ -1,0 +1,15 @@
+export const STORAGE_KEYS = {
+  schemaVersion: 'cleanTab.schemaVersion',
+  settings: 'cleanTab.settings',
+  todos: 'cleanTab.todos',
+  note: 'cleanTab.note',
+  notes: 'cleanTab.notes',
+  shortcuts: 'cleanTab.shortcuts',
+  favoriteTools: 'clean-tab-favorite-tools',
+  recentSearches: 'cleanTab.recentSearches',
+  pendingTodoDeletions: 'cleanTab.pendingTodoDeletions',
+  pendingNoteDeletions: 'cleanTab.pendingNoteDeletions',
+  noteBodyMigration: 'cleanTab.noteBodyMigration',
+  focusTimer: 'cleanTab.focusTimer',
+  focusTaskId: 'cleanTab.focusTaskId',
+} as const
