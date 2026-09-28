@@ -204,10 +204,12 @@ describe('任务', () => {
 
     assert.equal(copy.status, 201);
     assert.equal(copy.data.text, '本地版本（冲突副本）');
+    assert.equal(copy.data.conflict_of, todo.id, '副本必须记录它覆盖的是哪一条原任务');
     assert.notEqual(copy.data.id, todo.id);
 
     const listed = await api('/workspace/todos', { token });
-    assert.equal(listed.data.length, 2);
+    assert.equal(listed.data.length, 1, '冲突副本不应混进常规任务列表');
+    assert.equal(listed.data[0].id, todo.id);
   });
 
   withDatabase('软删除后列表不再返回，重复删除幂等', async () => {
@@ -408,6 +410,179 @@ describe('快捷方式', () => {
       body: { items: [{ id: null, name: '名称', url: '', emoji: 'E', color: '#000000' }] },
     });
     assert.equal(emptyUrl.status, 400);
+  });
+});
+
+describe('冲突处理', () => {
+  withDatabase('冲突查询返回副本与对应的原条目', async () => {
+    const { token } = await createUser('conflicts-list');
+    const todo = await createTodo(token, { text: '原始任务' });
+    const note = await createNote(token, { title: '原始笔记', content: '原正文' });
+
+    await api('/workspace/todos/conflict', {
+      method: 'POST',
+      token,
+      body: { item: { id: todo.id, text: '本地任务版本', done: false, priority: 'medium', tag: '', subtasks: [] } },
+    });
+    await api('/workspace/notes/conflict', {
+      method: 'POST',
+      token,
+      body: { item: { id: note.id, title: '本地笔记版本', content: '本地正文' } },
+    });
+
+    const conflicts = await api('/workspace/conflicts', { token });
+
+    assert.equal(conflicts.status, 200);
+    assert.equal(conflicts.data.todos.length, 1);
+    assert.equal(conflicts.data.todos[0].copy.text, '本地任务版本（冲突副本）');
+    assert.equal(conflicts.data.todos[0].original.id, todo.id);
+    assert.equal(conflicts.data.todos[0].original.text, '原始任务');
+
+    assert.equal(conflicts.data.notes.length, 1);
+    assert.equal(conflicts.data.notes[0].copy.title, '本地笔记版本（冲突副本）');
+    assert.equal(conflicts.data.notes[0].original.id, note.id);
+  });
+
+  withDatabase('原条目被删除后冲突仍可查询，original 为 null', async () => {
+    const { token } = await createUser('conflicts-orphan');
+    const todo = await createTodo(token, { text: '会被删除的任务' });
+
+    await api('/workspace/todos/conflict', {
+      method: 'POST',
+      token,
+      body: { item: { id: todo.id, text: '副本', done: false, priority: 'medium', tag: '', subtasks: [] } },
+    });
+    await api('/workspace/todos/delete', {
+      method: 'POST',
+      token,
+      body: { items: [{ id: todo.id, version: todo.version }] },
+    });
+
+    const conflicts = await api('/workspace/conflicts', { token });
+    assert.equal(conflicts.data.todos.length, 1);
+    assert.equal(conflicts.data.todos[0].original, null, '原条目被软删除后应返回 null 而不是报错');
+  });
+
+  withDatabase('采用副本内容后原条目更新、副本被清理', async () => {
+    const { token } = await createUser('conflicts-resolve');
+    const todo = await createTodo(token, { text: '原始任务' });
+
+    await api('/workspace/todos/upsert', {
+      method: 'POST',
+      token,
+      body: {
+        items: [{
+          id: todo.id, text: '远端已更新', done: false, priority: 'medium', tag: '', subtasks: [], version: todo.version,
+        }],
+      },
+    });
+    await api('/workspace/todos/conflict', {
+      method: 'POST',
+      token,
+      body: { item: { id: todo.id, text: '本地版本', done: true, priority: 'high', tag: '', subtasks: [] } },
+    });
+
+    const conflicts = await api('/workspace/conflicts', { token });
+    const { copy, original } = conflicts.data.todos[0];
+
+    // 客户端的「采用本地版本」：以原条目当前版本为基准写回副本内容，再删除副本。
+    const applied = await api('/workspace/todos/upsert', {
+      method: 'POST',
+      token,
+      body: {
+        items: [{
+          id: original.id,
+          text: '本地版本',
+          done: copy.done,
+          priority: copy.priority,
+          tag: copy.tag,
+          subtasks: copy.subtasks,
+          version: original.version,
+        }],
+      },
+    });
+    assert.equal(applied.status, 200);
+    assert.equal(applied.data[0].text, '本地版本');
+
+    const cleaned = await api('/workspace/todos/delete', {
+      method: 'POST',
+      token,
+      body: { items: [{ id: copy.id, version: copy.version }] },
+    });
+    assert.equal(cleaned.status, 200);
+
+    const after = await api('/workspace/conflicts', { token });
+    assert.equal(after.data.todos.length, 0, '处理完成后不应再出现在冲突列表');
+
+    const listed = await api('/workspace/todos', { token });
+    assert.equal(listed.data.length, 1);
+    assert.equal(listed.data[0].text, '本地版本');
+  });
+
+  withDatabase('丢弃副本后原条目保持远端内容', async () => {
+    const { token } = await createUser('conflicts-discard');
+    const todo = await createTodo(token, { text: '原始任务' });
+
+    await api('/workspace/todos/conflict', {
+      method: 'POST',
+      token,
+      body: { item: { id: todo.id, text: '本地版本', done: false, priority: 'medium', tag: '', subtasks: [] } },
+    });
+
+    const conflicts = await api('/workspace/conflicts', { token });
+    const { copy } = conflicts.data.todos[0];
+
+    await api('/workspace/todos/delete', {
+      method: 'POST',
+      token,
+      body: { items: [{ id: copy.id, version: copy.version }] },
+    });
+
+    const after = await api('/workspace/conflicts', { token });
+    assert.equal(after.data.todos.length, 0);
+
+    const listed = await api('/workspace/todos', { token });
+    assert.equal(listed.data.length, 1);
+    assert.equal(listed.data[0].text, '原始任务', '原条目应保持远端内容不变');
+  });
+
+  withDatabase('没有冲突时返回空数组', async () => {
+    const { token } = await createUser('conflicts-empty');
+    await createTodo(token, { text: '普通任务' });
+
+    const conflicts = await api('/workspace/conflicts', { token });
+    assert.deepEqual(conflicts.data, { todos: [], notes: [] });
+  });
+
+  withDatabase('冲突列表按账号隔离', async () => {
+    const a = await createUser('conflicts-iso-a');
+    const b = await createUser('conflicts-iso-b');
+    const todo = await createTodo(a.token, { text: 'A 的任务' });
+
+    await api('/workspace/todos/conflict', {
+      method: 'POST',
+      token: a.token,
+      body: { item: { id: todo.id, text: 'A 的副本', done: false, priority: 'medium', tag: '', subtasks: [] } },
+    });
+
+    const bConflicts = await api('/workspace/conflicts', { token: b.token });
+    assert.deepEqual(bConflicts.data, { todos: [], notes: [] });
+  });
+
+  withDatabase('超长内容仍保留冲突后缀，客户端才能还原原始文本', async () => {
+    const { token } = await createUser('conflicts-long');
+    const longText = 'x'.repeat(500);
+    const todo = await createTodo(token, { text: longText });
+
+    const copy = await api('/workspace/todos/conflict', {
+      method: 'POST',
+      token,
+      body: { item: { id: todo.id, text: longText, done: false, priority: 'medium', tag: '', subtasks: [] } },
+    });
+
+    assert.equal(copy.status, 201);
+    assert.ok(copy.data.text.endsWith('（冲突副本）'), '后缀不能被长度截断吃掉');
+    assert.equal(copy.data.text.length, 500, '总长度仍需满足列约束');
   });
 });
 

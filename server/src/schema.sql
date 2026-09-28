@@ -68,6 +68,9 @@ create table if not exists todos (
   subtasks jsonb not null default '[]'::jsonb,
   due_at timestamptz,
   deleted_at timestamptz,
+  -- 指向被冲突覆盖的原任务。非空表示这一行是「冲突副本」，
+  -- 与 notes.conflict_of 语义一致，不应出现在常规列表中。
+  conflict_of uuid references todos(id) on delete set null,
   version integer not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -88,6 +91,7 @@ create table if not exists notes (
 create index if not exists bookmarks_user_order_idx on bookmarks (user_id, sort_order);
 create index if not exists todos_user_updated_idx on todos (user_id, updated_at desc);
 create index if not exists todos_user_deleted_idx on todos (user_id, deleted_at) where deleted_at is not null;
+create index if not exists todos_conflict_idx on todos (user_id, conflict_of) where conflict_of is not null;
 create index if not exists notes_user_updated_idx on notes (user_id, updated_at desc);
 create index if not exists notes_conflict_idx on notes (user_id, conflict_of, updated_at desc);
 
@@ -100,3 +104,10 @@ alter table user_settings alter column version type integer;
 alter table bookmarks alter column version type integer;
 alter table todos alter column version type integer;
 alter table notes alter column version type integer;
+
+-- 为既有数据库补齐任务侧的 conflict_of（幂等）。
+-- 早期版本只有 notes 记录了冲突来源，导致任务冲突副本既无法被识别，
+-- 又会以「xxx（冲突副本）」的形式混进常规任务列表。
+alter table todos add column if not exists conflict_of uuid references todos(id) on delete set null;
+
+create index if not exists todos_conflict_idx on todos (user_id, conflict_of) where conflict_of is not null;

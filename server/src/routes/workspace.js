@@ -21,6 +21,14 @@ workspaceRoutes.use('*', requireAuth);
 
 const MAX_CONTENT_LENGTH = 200_000;
 
+// 冲突副本的标题后缀，客户端据此还原出原始内容。
+const CONFLICT_SUFFIX = '（冲突副本）';
+
+// 必须先截断再加后缀：若先拼接再 slice，超长内容会把后缀一起截掉，
+// 客户端就无法判断这是一份副本，也无法还原原始文本。
+const toConflictLabel = (value, maxLength) =>
+  `${value.slice(0, maxLength - CONFLICT_SUFFIX.length)}${CONFLICT_SUFFIX}`;
+
 // ---------- 载荷解析 ----------
 
 const readSettingsValues = body => [
@@ -136,7 +144,7 @@ workspaceRoutes.get('/todos', async c => {
   const { userId } = currentAuth(c);
   const result = await query(
     `select * from todos
-      where user_id = $1 and deleted_at is null
+      where user_id = $1 and deleted_at is null and conflict_of is null
       order by updated_at desc`,
     [userId],
   );
@@ -230,14 +238,15 @@ workspaceRoutes.post('/todos/delete', async c => {
 workspaceRoutes.post('/todos/conflict', async c => {
   const { userId } = currentAuth(c);
   const body = readObject(await c.req.json().catch(() => null));
-  const item = readTodoItem(body.item ?? body);
+  const raw = readObject(body.item ?? body);
+  const item = readTodoItem(raw);
 
   const result = await query(
-    `insert into todos (user_id, text, done, priority, tag, subtasks, due_at)
-     values ($1, $2, $3, $4, $5, $6::jsonb, $7)
+    `insert into todos (user_id, text, done, priority, tag, subtasks, due_at, conflict_of)
+     values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
      returning *`,
-    [userId, `${item.text}（冲突副本）`.slice(0, 500), item.done, item.priority, item.tag,
-      JSON.stringify(item.subtasks), item.dueAt],
+    [userId, toConflictLabel(item.text, 500), item.done, item.priority, item.tag,
+      JSON.stringify(item.subtasks), item.dueAt, isUuid(raw.id) ? raw.id : null],
   );
   return c.json(result.rows[0], 201);
 });
@@ -344,7 +353,7 @@ workspaceRoutes.post('/notes/conflict', async c => {
      returning *`,
     [
       userId,
-      `${item.title}（冲突副本）`.slice(0, 120),
+      toConflictLabel(item.title, 120),
       `本地冲突副本，编辑时间：${raw.updatedAt || '未知'}\n\n${item.content}`,
       isUuid(raw.id) ? raw.id : null,
     ],
@@ -440,6 +449,43 @@ workspaceRoutes.post('/bookmarks/delete', async c => {
   });
 
   return c.json({ ok: true });
+});
+
+// ---------- 冲突处理 ----------
+
+// 冲突副本由客户端在收到 409 后自动创建：把本地版本另存为一份副本，同时接受远端版本。
+// 副本不进入常规列表（todos 与 notes 均按 conflict_of is null 过滤），
+// 因此需要单独查询，供用户在同步面板中逐条决定保留哪一版。
+//
+// filter 会同时作用于副本与原条目查询：原条目若已被软删除，
+// 就不应再作为「被覆盖的版本」呈现给用户，此时 original 返回 null。
+const loadConflicts = async (table, userId, filter = '') => {
+  const copies = await query(
+    `select * from ${table}
+      where user_id = $1 and conflict_of is not null ${filter}
+      order by updated_at desc`,
+    [userId],
+  );
+
+  const originalIds = [...new Set(copies.rows.map(row => row.conflict_of))];
+  const originals = originalIds.length > 0
+    ? await query(
+      `select * from ${table}
+        where user_id = $1 and id = any($2::uuid[]) ${filter}`,
+      [userId, originalIds],
+    )
+    : { rows: [] };
+  const originalById = new Map(originals.rows.map(row => [row.id, row]));
+
+  return copies.rows.map(copy => ({ copy, original: originalById.get(copy.conflict_of) ?? null }));
+};
+
+workspaceRoutes.get('/conflicts', async c => {
+  const { userId } = currentAuth(c);
+  return c.json({
+    todos: await loadConflicts('todos', userId, 'and deleted_at is null'),
+    notes: await loadConflicts('notes', userId),
+  });
 });
 
 // ---------- 变更轮询 ----------
