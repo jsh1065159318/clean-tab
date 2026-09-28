@@ -148,6 +148,62 @@ VITE_API_BASE_URL=https://api.example.com npm run build
 
 所有业务表都有 `version` 字段用于乐观锁。**该字段必须是 `integer` 而不是 `bigint`**：`node-postgres` 会把 `int8` 解析成字符串以避免精度丢失，而前端用 `Number.isInteger(version)` 判断是否携带版本号，返回字符串会让乐观锁静默失效。`schema.sql` 末尾有幂等的 `ALTER` 语句兼容早期建表。
 
+## 测试
+
+使用 Node 内置的 `node:test`，**不引入任何测试依赖**（后端运行时依赖仍为 3 个）。
+
+```sh
+npm run check   # 对 src/ 下每个文件执行 node --check 语法检查
+npm test        # 单元测试 + 集成测试
+```
+
+### 两类测试
+
+| 类型 | 位置 | 是否需要数据库 |
+| --- | --- | --- |
+| 单元测试 | `tests/unit/` | 不需要 |
+| 集成测试 | `tests/integration/` | **需要** |
+
+集成测试通过 Hono 的 `app.request()` 在进程内发起请求，不监听端口，因此不存在端口占用与并发冲突。
+
+### 没有数据库时
+
+集成测试会**自动跳过**并打印提示，`npm test` 仍然通过——本地只想跑单元测试时无需准备数据库：
+
+```txt
+# tests 74
+# pass 32
+# skipped 42
+```
+
+在 CI 中设置 `REQUIRE_DATABASE=1`，数据库不可用会直接失败，避免集成测试被静默跳过而流水线依然显示通过。
+
+### 本地跑集成测试
+
+```sh
+# 任意可用的 PostgreSQL 均可，用容器最省事
+docker run -d --name clean-tab-test-pg \
+  -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=clean_tab \
+  -p 55432:5432 postgres:18-alpine
+
+DATABASE_URL='postgres://test:test@127.0.0.1:55432/clean_tab' REQUIRE_DATABASE=1 npm test
+
+docker rm -f clean-tab-test-pg
+```
+
+测试不会清表，改用唯一邮箱隔离账号，因此可以反复执行而无需清理。表结构由 `tests/helpers/database.js` 在首次连接时用 `schema.sql` 幂等创建。
+
+### 覆盖范围
+
+单元测试覆盖密码哈希与校验、参数校验工具、HTTP 错误与 Bearer 解析、以及应用层的健康检查、404、CORS 预检、鉴权拦截、参数校验与 2 MB 请求体上限。
+
+集成测试覆盖认证全流程（含大小写不敏感的邮箱、登出只影响当前会话）、设置与三类实体的乐观锁冲突、软删除幂等、冲突副本、`revision` 轮询变化，以及多账号读写隔离。
+
+其中两条是针对已发生过的真实缺陷设立的回归断言：
+
+- **`version` 必须是数字**。`node-postgres` 会把 `bigint` 解析成字符串，而前端用 `Number.isInteger(version)` 判断是否携带版本号——退化为字符串会让乐观锁静默失效。
+- **批量接口的 409 必须带 `conflictId`**。否则客户端无法定位是哪一条冲突，会把整批请求都当作冲突处理。
+
 ## 运维
 
 **备份**
