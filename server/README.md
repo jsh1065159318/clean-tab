@@ -23,7 +23,7 @@
 ```sh
 docker run -d --name clean-tab-postgres \
   -e POSTGRES_USER=clean_tab \
-  -e POSTGRES_PASSWORD=clean_tab_dev_password \
+  -e POSTGRES_PASSWORD=change-me \
   -e POSTGRES_DB=clean_tab \
   -p 5432:5432 \
   -v clean-tab-postgres-data:/var/lib/postgresql \
