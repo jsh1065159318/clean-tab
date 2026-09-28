@@ -6,6 +6,8 @@
 
 **本轮结果（2026-08-18）**：lint、typecheck、48 个单元测试和生产构建全部通过；首页初始 JS 为 81.2 KiB gzip，CSS 为 7.7 KiB gzip；Chrome/Firefox ZIP 已生成并通过自动完整性校验；`1440 x 900`、`390 x 844`、`320 x 700` 浏览器验收无横向溢出或控制台错误，命令面板、专注计时器、最近搜索和笔记快速删除/撤销均通过交互验收，多标签页同步、任务与笔记删除竞态保护、笔记增量/IndexedDB 回退、右键捕获参数、图片压缩、计时算法、本地搜索历史和搜索前缀均有测试。
 
+**本轮结果（2026-09-28）**：仓库完成落库与治理——重建工作按功能域拆为 5 个语义化提交并全部入库，移除无引用的 `it-tools-main` 副本与空目录，CI 工作流纳入版本管理；公共聊天与后台管理后端正式下线（新增 `0007_drop_chat.sql`、删除两个 Edge Function、移除 `authStore` 中遗留的 `user_roles` 查询）；typecheck、48 个单元测试与 lint 全部通过。
+
 ## 一、目标与成功指标
 
 用户打开新标签页后，应当可以在 3 秒内完成以下任意操作：
@@ -67,6 +69,7 @@
 | --- | --- | --- | --- | --- |
 | SYNC-01 | P0 | 删除任务写入云端队列存在异步竞态 | 已通过本地待删除保护、队列补偿和实时过滤修复 | `WorkspaceApp.tsx`、`pendingTodoDeletionService.ts`、`workspaceSyncService.ts` |
 | PROD-01 | P0 | 公共聊天仍被全局挂载 | 偏离产品定位，增加首包、网络请求和界面干扰 | `WorkspaceApp.tsx`、`features/chat`、`manifest` |
+| PROD-02 | P0 | 前端已移除聊天，后端仍保留 `chat_*`、`user_roles`、`admin_audit_logs` 表与 RLS 策略及两个 Edge Function | 无消费方却持续对外暴露，且 `chat_messages` 挂在 Realtime publication 上 | `supabase/migrations`、`supabase/functions`、`authStore.js` |
 | UX-01 | P0 | 移动端聊天按钮遮挡核心内容 | 覆盖任务按钮、笔记正文并挤压底部导航 | `index.scss`、`MqttChatWidget.tsx` |
 | SEC-01 | P0 | 搜索与快捷方式接受任意 URL 协议 | 可能触发非预期协议或外部应用 | `WorkspaceApp.tsx` |
 | QA-01 | P0 | ESLint 不检查 TS/TSX，无障碍规则未启用 | 核心代码绕过静态质量门禁 | `package.json`、`eslint.config.js` |
@@ -74,7 +77,7 @@
 | PERF-01 | P1 | 所有页面与重依赖打入单个 JS 文件 | 当前主 JS 约 793 KB，gzip 约 244 KB | `WorkspaceApp.tsx`、`vite.config.mjs` |
 | PERF-02 | P1 | 根组件每秒更新时钟 | 非首页页面也会持续重渲染 | `WorkspaceApp.tsx`、`HomeView.tsx` |
 | DATA-01 | P1 | 本地存储缺少结构校验和异常恢复 | 损坏数据、隐私模式或配额异常可能导致白屏 | `storageService.ts`、`workspaceStore.ts` |
-| DATA-02 | P1 | 笔记每次按键重写并同步全部笔记 | 笔记增多后输入卡顿、网络和数据库写入放大 | `NotesView.tsx`、`useWorkspaceSync.ts` |
+| DATA-02 | P1 | 笔记每次按键重写并同步全部笔记 | 已改为单笔记增量排队与 IndexedDB 正文存储，不再批量重传 | `NotesView.tsx`、`useWorkspaceSync.ts` |
 | A11Y-01 | P1 | 全局移除焦点轮廓且无替代样式 | 键盘用户无法识别当前焦点 | `index.scss` |
 | A11Y-02 | P1 | 弹窗缺少完整焦点管理 | 焦点可逃出弹窗，关闭后不能稳定恢复 | `ShortcutEditorModal.tsx`、`AuthModal.jsx` |
 | INPUT-01 | P1 | 快捷方式排序仅支持 HTML 拖放 | 触控和键盘排序不可用 | `ShortcutGrid.tsx` |
@@ -84,7 +87,7 @@
 | TASK-01 | P2 | 任务模型已有优先级，但 UI 不可编辑 | 已补齐文本、优先级、截止日期和排序能力 | `TasksView.tsx` |
 | BACKUP-01 | P2 | 缺少导入、导出与恢复 | 用户无法主动备份或迁移本地数据 | `SettingsView.tsx`、`services` |
 | BG-01 | P2 | 背景图片仅支持远程地址 | 存在加载失败、性能和隐私风险 | `SettingsView.tsx`、存储层 |
-| REPO-01 | P2 | 仓库包含完整 `it-tools-main` 副本和压缩包 | 增加扫描、搜索、依赖治理和维护噪声 | 仓库根目录 |
+| REPO-01 | P2 | 仓库包含完整 `it-tools-main` 副本和压缩包 | 已删除副本与压缩包，仓库仅保留产品代码 | 仓库根目录 |
 
 ## 五、实施计划
 
@@ -96,6 +99,8 @@
 - [x] `SYNC-01` 为在线删除、离线删除、重连、重新登录和多设备冲突增加测试。
 - [x] `PROD-01` 从根组件移除 `MqttChatWidget` 和公共聊天运行入口。
 - [x] `PROD-01` 删除 MQTT 依赖、配置、样式和不再使用的聊天服务；如需保留实验代码，移入独立实验分支。
+- [x] `PROD-02` 新增 `0007_drop_chat.sql`，清理 `chat_*`、`user_roles`、`admin_audit_logs` 表及其 RLS 策略、管理角色函数与 Realtime 订阅。
+- [x] `PROD-02` 删除 `chat-send`、`admin-action` 两个 Edge Function，并移除 `authStore` 中遗留的 `user_roles` 查询与 `roles` 死状态。
 - [x] `UX-01` 移除聊天悬浮层后，复测首页、任务、笔记和设置的移动端遮挡。
 - [x] `SEC-01` 建立统一的 `parseNavigableUrl`，只允许 `http:`、`https:`，并单独支持合法 localhost 地址。
 - [x] `SEC-01` 搜索提交和快捷方式保存、打开复用同一个 URL 解析器。
@@ -107,6 +112,7 @@
 
 - 删除任务不会在任何同步场景中恢复。
 - 页面、构建产物和清单中不存在公共聊天、MQTT 代码或权限。
+- 数据库中不存在无前端消费方的聊天与管理表，登录链路不依赖 `user_roles`。
 - `javascript:`、`data:`、`file:` 和自定义协议无法作为搜索直达或快捷方式保存。
 - TS/TSX 中故意制造的未使用变量、Hook 依赖和无障碍错误会让 CI 失败。
 
@@ -122,8 +128,8 @@
 - [x] `DATA-01` 为任务、笔记、快捷方式和设置增加运行时 schema 校验与版本号。
 - [x] `DATA-01` 存储读取失败时保留原始备份，回退到安全默认值并展示可恢复提示。
 - [x] `DATA-01` 捕获 `QuotaExceededError` 和不可用存储环境，不让异常穿透渲染层。
-- [ ] `DATA-02` 将笔记正文迁移至 IndexedDB，列表元数据可保留在轻量存储中。
-- [ ] `DATA-02` 笔记编辑采用本地防抖保存和单笔记云端队列，不批量重传全部笔记。
+- [x] `DATA-02` 将笔记正文迁移至 IndexedDB，列表元数据可保留在轻量存储中。
+- [x] `DATA-02` 笔记编辑采用本地防抖保存和单笔记云端队列，不批量重传全部笔记。
 
 **性能预算**：
 
@@ -180,7 +186,7 @@
 - [ ] 设置正式且唯一的 Firefox extension ID，补齐商店名称、描述、图标和隐私说明。
 - [x] 版本号由单一来源生成到 Chrome、Firefox manifest 和 ZIP 文件名。
 - [x] `REL-01` 增加构建产物 manifest 校验、ZIP 完整性检查和禁止 secret 扫描。
-- [ ] `REPO-01` 将 `it-tools-main` 移出产品仓库，或改为明确的外部参考来源。
+- [x] `REPO-01` 删除 `it-tools-main` 副本与压缩包，仓库不再包含外部参考项目。
 - [ ] 完成 Chrome、Edge、Firefox 的首次安装、重新加载、升级和卸载后重装测试。
 
 ## 六、自动化测试方案
