@@ -137,7 +137,14 @@ npm test
 npm run build
 ```
 
-改动同步逻辑时，还需按 `server/README.md` 启动本地后端并验证登录、断网恢复与多设备冲突场景。`server/` 不在根 `tsconfig.json` 与 ESLint 的覆盖范围内，不会被上述门禁检查。
+后端有独立的检查命令：
+
+```sh
+npm run server:check   # 对 server/src 做语法检查
+npm run server:test    # 单元测试 + 集成测试（集成测试需 DATABASE_URL，缺失时自动跳过）
+```
+
+`server/` 不在根 `tsconfig.json` 与 ESLint 的覆盖范围内，也不会被上面的前端命令检查到；CI 中由独立的「同步后端」任务执行，并带 PostgreSQL service container。改动同步逻辑时仍需按 [`../server/README.md`](../server/README.md) 手工验证登录、断网恢复与多设备冲突场景。
 
 页面修改至少需要验证：
 

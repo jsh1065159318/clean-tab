@@ -10,6 +10,8 @@
 
 **本轮结果（2026-09-28 · 同步后端替换）**：Supabase 已替换为自建轻量后端 `server/`（Node + Hono + PostgreSQL，运行时依赖 3 个）。前端改造面收敛在 5 个文件：`config/backend.js`、`services/apiClient.js`、`services/authService.js`、`repositories/workspaceRepository.js`、`services/workspaceRealtimeService.ts`，其余约 6,000 行代码未改动。Realtime 长连接改为轮询，扩展 CSP 不再需要 WebSocket 来源。后端在真实 PostgreSQL 18 上通过 43 项集成测试；typecheck、48 个单元测试、lint 与生产构建全部通过。
 
+**本轮结果（2026-09-28 · 后端测试与 CI）**：`server/` 补齐自动化测试，使用 Node 内置 `node:test`，**未新增任何依赖**——32 项单元测试覆盖密码哈希、参数校验、HTTP 错误与 CORS 预检；42 项集成测试覆盖认证全流程、乐观锁冲突、软删除幂等、`revision` 轮询与多账号隔离。集成测试通过 `app.request()` 在进程内发起请求，不占端口。无数据库时自动跳过（32 通过 / 42 跳过），CI 中设 `REQUIRE_DATABASE=1` 使数据库不可用直接失败，防止集成测试被静默跳过。CI 新增带 PostgreSQL service container 的「同步后端」任务。
+
 ## 一、目标与成功指标
 
 用户打开新标签页后，应当可以在 3 秒内完成以下任意操作：
@@ -333,6 +335,6 @@
 ### 待办
 
 - [ ] 将 `workspaceRepository` 的 `userId` 形参连同三个调用方一并移除
-- [ ] 为 `server/` 增加自动化测试（当前依赖手工集成脚本，未纳入 `npm test`）
-- [ ] 将 `server/` 纳入 CI（lint / 集成测试需 PostgreSQL service container）
+- [x] 为 `server/` 增加自动化测试（`node:test`，无新增依赖；32 项单元测试 + 42 项集成测试）
+- [x] 将 `server/` 纳入 CI（新增带 PostgreSQL service container 的「同步后端」任务）
 - [ ] 从 Supabase 迁移既有用户数据（当前无迁移脚本，云端历史数据需手工导出）
