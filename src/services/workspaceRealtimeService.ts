@@ -1,5 +1,5 @@
-import { supabaseConfig } from 'config/supabase'
-import { requireSupabase } from 'services/supabaseClient'
+import { backendConfig } from 'config/backend'
+import { apiRequest } from 'services/apiClient'
 import { offlineQueueService } from 'services/offlineQueueService'
 import { workspaceRepository } from 'repositories/workspaceRepository'
 import { settingsStore } from 'features/store/stores/settingsStore'
@@ -9,6 +9,17 @@ import { pendingNoteDeletionService } from 'services/pendingNoteDeletionService'
 import { pendingTodoDeletionService } from 'services/pendingTodoDeletionService'
 
 type RealtimeResource = 'todos' | 'note' | 'settings' | 'shortcuts'
+
+// 用轮询替代长连接订阅：弱网环境下 WebSocket 最容易被中间设备中断，
+// 而收到变更后本来就是全量重拉，轮询与订阅的收敛结果一致，但失败可自愈。
+const POLL_INTERVAL_MS = 20_000
+
+const revisionResources: Array<[string, RealtimeResource]> = [
+  ['todos', 'todos'],
+  ['notes', 'note'],
+  ['bookmarks', 'shortcuts'],
+  ['settings', 'settings'],
+]
 
 const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
@@ -107,13 +118,6 @@ const scheduleRefresh = (userId: string, resource: RealtimeResource) => {
   refreshTimers.set(key, timer)
 }
 
-const scheduleAllResources = (userId: string) => {
-  scheduleRefresh(userId, 'todos')
-  scheduleRefresh(userId, 'note')
-  scheduleRefresh(userId, 'settings')
-  scheduleRefresh(userId, 'shortcuts')
-}
-
 const clearUserTimers = (userId: string) => {
   for (const resource of ['todos', 'note', 'settings', 'shortcuts'] as RealtimeResource[]) {
     const key = timerKey(userId, resource)
@@ -125,33 +129,56 @@ const clearUserTimers = (userId: string) => {
 
 export const workspaceRealtimeService = {
   subscribe(userId: string): () => void {
-    if (!supabaseConfig.isConfigured) return () => undefined
+    if (!backendConfig.isConfigured) return () => undefined
 
-    const client = requireSupabase()
-    const channel = client
-      .channel(`workspace-sync:${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${userId}` }, () => {
-        scheduleRefresh(userId, 'todos')
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${userId}` }, () => {
-        scheduleRefresh(userId, 'note')
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_settings', filter: `user_id=eq.${userId}` }, () => {
-        scheduleRefresh(userId, 'settings')
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookmarks', filter: `user_id=eq.${userId}` }, () => {
-        scheduleRefresh(userId, 'shortcuts')
-      })
-      .subscribe(status => {
-        if (status === 'SUBSCRIBED') scheduleAllResources(userId)
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Workspace realtime channel status: ${status}`)
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let previous: Record<string, string> | null = null
+
+    const scheduleNext = () => {
+      if (stopped) return
+      timer = setTimeout(() => void poll(), POLL_INTERVAL_MS)
+    }
+
+    const poll = async (): Promise<void> => {
+      if (stopped) return
+
+      // 页面不可见时跳过请求，回到前台会立即补一次。
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        scheduleNext()
+        return
+      }
+
+      try {
+        const revisions = (await apiRequest('/workspace/revision')) as Record<string, string>
+        if (previous) {
+          for (const [key, resource] of revisionResources) {
+            if (previous[key] !== revisions[key]) scheduleRefresh(userId, resource)
+          }
         }
-      })
+        previous = revisions
+      } catch (error) {
+        // 轮询失败不影响本地使用，等下一轮自愈。
+        console.error('轮询云端变更失败：', error)
+      }
+
+      scheduleNext()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      if (timer) clearTimeout(timer)
+      void poll()
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    void poll()
 
     return () => {
+      stopped = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       clearUserTimers(userId)
-      void client.removeChannel(channel)
     }
   },
 }

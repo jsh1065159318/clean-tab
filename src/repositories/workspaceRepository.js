@@ -1,24 +1,12 @@
-import { supabaseConfig } from 'config/supabase';
-import { requireSupabase } from 'services/supabaseClient';
+import { ApiError, apiRequest } from 'services/apiClient';
 
-const ensureConfigured = () => {
-  if (!supabaseConfig.isConfigured) {
-    throw new Error('Supabase 尚未配置。');
-  }
-  return requireSupabase();
-};
+// 说明：所有方法保留 userId 形参，以维持既有调用契约（同步服务与轮询服务按位置传参）。
+// 自建后端从会话令牌推导身份，不信任客户端传入的用户标识，因此该参数不参与请求，
+// 统一以下划线前缀命名。后续如需清理，可连同调用方一起移除。
 
 const isUuid = value =>
   typeof value === 'string' &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-
-const throwIfError = ({ data, error }) => {
-  if (error) throw error;
-  return data;
-};
-
-const isMissingConflictColumn = error =>
-  error?.code === '42703' || /conflict_of/i.test(error?.message || '');
 
 export class WorkspaceConflictError extends Error {
   constructor(resource, local, remote) {
@@ -61,320 +49,127 @@ const toBookmark = row => ({
   version: row.version,
 });
 
+// 批量接口会返回 conflictId，据此把远端内容与「发生冲突的那一条本地记录」配对，
+// 而不是把整批请求都当作冲突处理。
+const toConflictError = ({ resource, localItems, error, mapRemote }) => {
+  if (!(error instanceof ApiError) || error.status !== 409) return error;
+
+  const conflictId = error.payload?.conflictId ?? null;
+  const local = Array.isArray(localItems)
+    ? localItems.find(item => item.id === conflictId) ?? localItems[0] ?? null
+    : localItems;
+
+  const remoteRow = error.payload?.remote ?? null;
+  return new WorkspaceConflictError(resource, local, remoteRow ? mapRemote(remoteRow) : null);
+};
+
 export const workspaceRepository = {
-  async getSettings(userId) {
-    const client = ensureConfigured();
-    const result = await client.from('user_settings').select('*').eq('user_id', userId).maybeSingle();
-    return throwIfError(result);
+  async getSettings(_userId) {
+    return apiRequest('/workspace/settings');
   },
 
-  async updateSettings(userId, values) {
-    const client = ensureConfigured();
-    const { version, ...settings } = values;
-    const result = Number.isInteger(version)
-      ? await client
-        .from('user_settings')
-        .update(settings)
-        .eq('user_id', userId)
-        .eq('version', version)
-        .select()
-        .maybeSingle()
-      : await client
-        .from('user_settings')
-        .upsert({ user_id: userId, ...settings }, { onConflict: 'user_id' })
-        .select()
-        .single();
-    const row = throwIfError(result);
-    if (!row) {
-      const remoteResult = await client
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      throw new WorkspaceConflictError('设置', values, throwIfError(remoteResult));
+  async updateSettings(_userId, values) {
+    try {
+      return await apiRequest('/workspace/settings', { method: 'PUT', body: values });
+    } catch (error) {
+      throw toConflictError({ resource: '设置', localItems: values, error, mapRemote: row => row });
     }
-    return row;
   },
 
-  async listTodos(userId) {
-    const client = ensureConfigured();
-    const result = await client
-      .from('todos')
-      .select('*')
-      .eq('user_id', userId)
-      .is('deleted_at', null)
-      .order('updated_at', { ascending: false });
-    return throwIfError(result).map(toTodo);
+  async listTodos(_userId) {
+    const rows = await apiRequest('/workspace/todos');
+    return rows.map(toTodo);
   },
 
-  async upsertTodos(userId, todos) {
-    const client = ensureConfigured();
-    const saved = [];
-    for (const todo of todos) {
-      const values = {
-        user_id: userId,
-        text: todo.text,
-        done: todo.done,
-        priority: todo.priority,
-        tag: todo.tag,
-        subtasks: todo.subtasks || [],
-        due_at: todo.dueDate || null,
-      };
-      const hasVersion = Number.isInteger(todo.version);
-      const result = hasVersion && isUuid(todo.id)
-        ? await client
-          .from('todos')
-          .update(values)
-          .eq('id', todo.id)
-          .eq('user_id', userId)
-          .eq('version', todo.version)
-          .is('deleted_at', null)
-          .select()
-          .maybeSingle()
-        : await client
-          .from('todos')
-          .upsert({ ...(isUuid(todo.id) ? { id: todo.id } : {}), ...values }, { onConflict: 'id' })
-          .select()
-          .single();
-      const row = throwIfError(result);
-      if (!row) {
-        const remoteResult = await client
-          .from('todos')
-          .select('*')
-          .eq('id', todo.id)
-          .eq('user_id', userId)
-          .maybeSingle();
-        const remote = throwIfError(remoteResult);
-        throw new WorkspaceConflictError('Todo', todo, remote ? toTodo(remote) : null);
-      }
-      saved.push(toTodo(row));
+  async upsertTodos(_userId, todos) {
+    try {
+      const rows = await apiRequest('/workspace/todos/upsert', { method: 'POST', body: { items: todos } });
+      return rows.map(toTodo);
+    } catch (error) {
+      throw toConflictError({ resource: 'Todo', localItems: todos, error, mapRemote: toTodo });
     }
+  },
+
+  async softDeleteTodos(_userId, deletions) {
+    const items = deletions.map(deletion => (typeof deletion === 'string' ? { id: deletion } : deletion));
+    try {
+      await apiRequest('/workspace/todos/delete', { method: 'POST', body: { items } });
+    } catch (error) {
+      throw toConflictError({ resource: 'Todo', localItems: items, error, mapRemote: toTodo });
+    }
+  },
+
+  async createTodoConflict(_userId, todo) {
+    const row = await apiRequest('/workspace/todos/conflict', { method: 'POST', body: { item: todo } });
+    return toTodo(row);
+  },
+
+  async listNotes(_userId) {
+    const rows = await apiRequest('/workspace/notes');
+    return rows.map(toNote);
+  },
+
+  async upsertNote(_userId, note) {
+    const [saved] = await this.upsertNotes(_userId, [note]);
     return saved;
   },
 
-  async softDeleteTodos(userId, deletions) {
-    const client = ensureConfigured();
-    for (const deletion of deletions) {
-      const item = typeof deletion === 'string' ? { id: deletion } : deletion;
-      let query = client
-        .from('todos')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .eq('id', item.id)
-        .is('deleted_at', null);
-      if (Number.isInteger(item.version)) query = query.eq('version', item.version);
-      const result = await query.select('id').maybeSingle();
-      const row = throwIfError(result);
-      if (!row && Number.isInteger(item.version)) {
-        const remoteResult = await client
-          .from('todos')
-          .select('*')
-          .eq('id', item.id)
-          .eq('user_id', userId)
-          .maybeSingle();
-        const remote = throwIfError(remoteResult);
-        if (remote && remote.deleted_at === null) {
-          throw new WorkspaceConflictError('Todo', item, toTodo(remote));
-        }
-      }
+  async upsertNotes(_userId, notes) {
+    try {
+      const rows = await apiRequest('/workspace/notes/upsert', { method: 'POST', body: { items: notes } });
+      return rows.map(toNote);
+    } catch (error) {
+      throw toConflictError({ resource: 'Note', localItems: notes, error, mapRemote: toNote });
     }
   },
 
-  async listNotes(userId) {
-    const client = ensureConfigured();
-    let result = await client
-      .from('notes')
-      .select('*')
-      .eq('user_id', userId)
-      .is('conflict_of', null)
-      .order('updated_at', { ascending: false });
-    if (isMissingConflictColumn(result.error)) {
-      result = await client
-        .from('notes')
-        .select('*')
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false });
+  async deleteNotes(_userId, deletions) {
+    const items = deletions.map(deletion => (typeof deletion === 'string' ? { id: deletion } : deletion));
+    try {
+      await apiRequest('/workspace/notes/delete', { method: 'POST', body: { items } });
+    } catch (error) {
+      throw toConflictError({ resource: 'Note', localItems: items, error, mapRemote: toNote });
     }
-    return throwIfError(result).map(toNote);
   },
 
-  async upsertNote(userId, note) {
-    const client = ensureConfigured();
-    const values = {
-      user_id: userId,
-      title: note.title || '未命名笔记',
-      content: note.content || '',
-    };
-    let result = Number.isInteger(note.version) && isUuid(note.id)
-      ? await client
-        .from('notes')
-        .update(values)
-        .eq('id', note.id)
-        .eq('user_id', userId)
-        .eq('version', note.version)
-        .is('conflict_of', null)
-        .select()
-        .maybeSingle()
-      : await client
-        .from('notes')
-        .upsert({ ...(isUuid(note.id) ? { id: note.id } : {}), ...values }, { onConflict: 'id' })
-        .select()
-        .single();
-    if (isMissingConflictColumn(result.error)) {
-      result = await client
-        .from('notes')
-        .update(values)
-        .eq('id', note.id)
-        .eq('user_id', userId)
-        .eq('version', note.version)
-        .select()
-        .maybeSingle();
-    }
-    const row = throwIfError(result);
-    if (!row) {
-      const remoteResult = await client
-        .from('notes')
-        .select('*')
-        .eq('id', note.id)
-        .eq('user_id', userId)
-        .maybeSingle();
-      const remote = throwIfError(remoteResult);
-      throw new WorkspaceConflictError('Note', note, remote ? toNote(remote) : null);
-    }
+  async createNoteConflict(_userId, note) {
+    const row = await apiRequest('/workspace/notes/conflict', {
+      method: 'POST',
+      body: {
+        item: {
+          id: isUuid(note.id) ? note.id : null,
+          title: note.title,
+          content: note.content,
+          updatedAt: note.updatedAt,
+        },
+      },
+    });
     return toNote(row);
   },
 
-  async upsertNotes(userId, notes) {
-    const saved = [];
-    for (const note of notes) saved.push(await this.upsertNote(userId, note));
-    return saved;
+  async listBookmarks(_userId) {
+    const rows = await apiRequest('/workspace/bookmarks');
+    return rows.map(toBookmark);
   },
 
-  async deleteNotes(userId, deletions) {
-    const client = ensureConfigured();
-    for (const deletion of deletions) {
-      const item = typeof deletion === 'string' ? { id: deletion } : deletion;
-      let query = client
-        .from('notes')
-        .delete()
-        .eq('user_id', userId)
-        .eq('id', item.id);
-      if (Number.isInteger(item.version)) query = query.eq('version', item.version);
-      const result = await query.select('id').maybeSingle();
-      const row = throwIfError(result);
-      if (!row && Number.isInteger(item.version)) {
-        const remoteResult = await client
-          .from('notes')
-          .select('*')
-          .eq('id', item.id)
-          .eq('user_id', userId)
-          .maybeSingle();
-        const remote = throwIfError(remoteResult);
-        if (remote) throw new WorkspaceConflictError('Note', item, toNote(remote));
-      }
+  async upsertBookmarks(_userId, bookmarks) {
+    try {
+      const rows = await apiRequest('/workspace/bookmarks/upsert', {
+        method: 'POST',
+        body: { items: bookmarks },
+      });
+      return rows.map(toBookmark);
+    } catch (error) {
+      throw toConflictError({ resource: '快捷方式', localItems: bookmarks, error, mapRemote: toBookmark });
     }
   },
 
-  async createTodoConflict(userId, todo) {
-    const client = ensureConfigured();
-    const result = await client
-      .from('todos')
-      .insert({
-        user_id: userId,
-        text: `${todo.text}（冲突副本）`.slice(0, 500),
-        done: todo.done,
-        priority: todo.priority,
-        tag: todo.tag,
-        subtasks: todo.subtasks || [],
-        due_at: todo.dueDate || null,
-      })
-      .select()
-      .single();
-    return toTodo(throwIfError(result));
-  },
-
-  async createNoteConflict(userId, note) {
-    const client = ensureConfigured();
-    const result = await client
-      .from('notes')
-      .insert({
-        user_id: userId,
-        title: `${note.title || '未命名笔记'}（冲突副本）`.slice(0, 120),
-        content: `本地冲突副本，编辑时间：${note.updatedAt || '未知'}\n\n${note.content || ''}`,
-        conflict_of: isUuid(note.id) ? note.id : null,
-      })
-      .select()
-      .single();
-    return toNote(throwIfError(result));
-  },
-
-  async listBookmarks(userId) {
-    const client = ensureConfigured();
-    const result = await client.from('bookmarks').select('*').eq('user_id', userId).order('sort_order').order('created_at');
-    return throwIfError(result).map(toBookmark);
-  },
-
-  async upsertBookmarks(userId, bookmarks) {
-    const client = ensureConfigured();
-    return Promise.all(bookmarks.map(async (bookmark, index) => {
-      const values = {
-        user_id: userId,
-        title: bookmark.name,
-        url: bookmark.url,
-        emoji: bookmark.emoji,
-        color: bookmark.color,
-        sort_order: index,
-      };
-      const result = Number.isInteger(bookmark.version) && isUuid(bookmark.id)
-        ? await client
-          .from('bookmarks')
-          .update(values)
-          .eq('id', bookmark.id)
-          .eq('user_id', userId)
-          .eq('version', bookmark.version)
-          .select()
-          .maybeSingle()
-        : await client
-          .from('bookmarks')
-          .upsert({ ...(isUuid(bookmark.id) ? { id: bookmark.id } : {}), ...values }, { onConflict: 'id' })
-          .select()
-          .single();
-      const row = throwIfError(result);
-      if (!row) {
-        const remoteResult = await client
-          .from('bookmarks')
-          .select('*')
-          .eq('id', bookmark.id)
-          .eq('user_id', userId)
-          .maybeSingle();
-        const remote = throwIfError(remoteResult);
-        throw new WorkspaceConflictError('快捷方式', bookmark, remote ? toBookmark(remote) : null);
-      }
-      return toBookmark(row);
-    }));
-  },
-
-  async deleteBookmarks(userId, deletions) {
-    const client = ensureConfigured();
-    for (const deletion of deletions) {
-      let query = client
-        .from('bookmarks')
-        .delete()
-        .eq('user_id', userId)
-        .eq('id', deletion.id);
-      if (Number.isInteger(deletion.version)) query = query.eq('version', deletion.version);
-      const result = await query.select('id').maybeSingle();
-      const row = throwIfError(result);
-      if (!row && Number.isInteger(deletion.version)) {
-        const remoteResult = await client
-          .from('bookmarks')
-          .select('*')
-          .eq('id', deletion.id)
-          .eq('user_id', userId)
-          .maybeSingle();
-        const remote = throwIfError(remoteResult);
-        if (remote) throw new WorkspaceConflictError('快捷方式', deletion, toBookmark(remote));
-      }
+  async deleteBookmarks(_userId, deletions) {
+    const items = deletions.map(deletion => (typeof deletion === 'string' ? { id: deletion } : deletion));
+    try {
+      await apiRequest('/workspace/bookmarks/delete', { method: 'POST', body: { items } });
+    } catch (error) {
+      throw toConflictError({ resource: '快捷方式', localItems: items, error, mapRemote: toBookmark });
     }
   },
 };

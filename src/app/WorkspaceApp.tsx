@@ -16,7 +16,7 @@ import {
   MdTimer,
 } from 'react-icons/md'
 import { appConfig } from 'config/app'
-import { supabaseConfig } from 'config/supabase'
+import { backendConfig } from 'config/backend'
 import { STORAGE_KEYS } from 'constants/storageKeys'
 import { HomeView } from 'features/dashboard/HomeView'
 import type { ShortcutDraft } from 'features/dashboard/ShortcutEditorModal'
@@ -49,9 +49,7 @@ type Theme = 'auto' | 'light' | 'dark'
 interface AuthUser {
   id?: string
   email?: string
-  user_metadata?: {
-    display_name?: string
-  }
+  displayName?: string
 }
 
 const AuthModal = lazy(() => import('../components/auth/AuthModal').then(module => ({ default: module.AuthModal })))
@@ -99,7 +97,7 @@ const getResolvedTheme = (theme: Theme): 'light' | 'dark' => {
 export default function WorkspaceApp() {
   const settings = useSettings()
   const [cloudState, setCloudState] = useState<CloudState>(() => ({
-    auth: { status: supabaseConfig.isConfigured ? 'loading' : 'unconfigured', user: null },
+    auth: { status: backendConfig.isConfigured ? 'loading' : 'unconfigured', user: null },
     syncState: 'local',
   }))
   const auth = cloudState.auth
@@ -148,10 +146,10 @@ export default function WorkspaceApp() {
 
   const displayName = useMemo(() => (
     settings.greetingName?.trim()
-    || authUser?.user_metadata?.display_name
+    || authUser?.displayName
     || authUser?.email?.split('@')[0]
     || ''
-  ), [authUser?.email, authUser?.user_metadata?.display_name, settings.greetingName])
+  ), [authUser?.displayName, authUser?.email, settings.greetingName])
 
   useEffect(() => {
     const theme = (settings.theme || 'auto') as Theme
@@ -716,7 +714,7 @@ export default function WorkspaceApp() {
       </div>
 
       <Suspense fallback={null}>
-        {supabaseConfig.isConfigured && <CloudBridge onChange={updateCloudState} />}
+        {backendConfig.isConfigured && <CloudBridge onChange={updateCloudState} />}
         {commandPaletteOpen && (
           <CommandPalette
             currentView={view}

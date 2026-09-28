@@ -67,12 +67,11 @@ export function AuthModal({ isDark, onClose }) {
           password,
           displayName: normalizedDisplayName,
         });
-        if (result.session) {
-          showToast('注册成功，已自动登录');
-          onClose();
-        } else {
-          setError('账号已创建，但云端仍开启了邮箱验证，暂时无法自动登录。请管理员在 Supabase 的 Email 登录配置中关闭“Confirm email”。');
+        if (!result.session) {
+          throw new Error('注册成功但未获得登录会话，请尝试直接登录。');
         }
+        showToast('注册成功，已自动登录');
+        onClose();
       }
     } catch (submitError) {
       setError(getAuthErrorMessage(submitError, mode === 'login' ? '登录失败，请稍后重试。' : '注册失败，请稍后重试。'));

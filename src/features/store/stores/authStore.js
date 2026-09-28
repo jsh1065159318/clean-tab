@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { authService } from 'services/authService';
-import { supabaseConfig } from 'config/supabase';
+import { backendConfig } from 'config/backend';
 
 const initialState = {
-  status: supabaseConfig.isConfigured ? 'loading' : 'unconfigured',
+  status: backendConfig.isConfigured ? 'loading' : 'unconfigured',
   user: null,
   error: null,
 };
@@ -23,7 +23,7 @@ const applySession = sessionData => {
   setSnapshot({ status: 'authenticated', user, error: null });
 };
 
-if (supabaseConfig.isConfigured) {
+if (backendConfig.isConfigured) {
   authService
     .getSession()
     .then(applySession)

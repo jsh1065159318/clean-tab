@@ -12,4 +12,5 @@ export const STORAGE_KEYS = {
   noteBodyMigration: 'cleanTab.noteBodyMigration',
   focusTimer: 'cleanTab.focusTimer',
   focusTaskId: 'cleanTab.focusTaskId',
+  sessionToken: 'cleanTab.sessionToken',
 } as const
