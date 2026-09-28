@@ -1,11 +1,40 @@
 import js from '@eslint/js';
+import prettier from 'eslint-config-prettier';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
-import jsxA11y from 'eslint-plugin-jsx-a11y';
-import prettier from 'eslint-config-prettier';
+import tseslint from 'typescript-eslint';
 
-export default [
-  // Ignore patterns
+const sourceFiles = ['src/**/*.{js,jsx,mjs,ts,tsx}'];
+
+const browserGlobals = {
+  AbortController: 'readonly',
+  Blob: 'readonly',
+  CustomEvent: 'readonly',
+  DOMParser: 'readonly',
+  FileReader: 'readonly',
+  Image: 'readonly',
+  TextDecoder: 'readonly',
+  TextEncoder: 'readonly',
+  URL: 'readonly',
+  atob: 'readonly',
+  btoa: 'readonly',
+  clearInterval: 'readonly',
+  clearTimeout: 'readonly',
+  console: 'readonly',
+  crypto: 'readonly',
+  document: 'readonly',
+  fetch: 'readonly',
+  indexedDB: 'readonly',
+  localStorage: 'readonly',
+  navigator: 'readonly',
+  requestAnimationFrame: 'readonly',
+  setInterval: 'readonly',
+  setTimeout: 'readonly',
+  window: 'readonly',
+};
+
+export default tseslint.config(
   {
     ignores: [
       '**/node_modules/**',
@@ -17,68 +46,43 @@ export default [
       '**/*.json',
     ],
   },
-
-  // Base config for all JS/JSX files
+  ...tseslint.configs.recommended.map(config => ({ ...config, files: sourceFiles })),
   {
-    files: ['**/*.{js,jsx,mjs}'],
+    files: sourceFiles,
     languageOptions: {
       ecmaVersion: 2024,
-      sourceType: 'module',
+      globals: browserGlobals,
       parserOptions: { ecmaFeatures: { jsx: true } },
-      globals: {
-        // Browser globals
-        window: 'readonly',
-        document: 'readonly',
-        navigator: 'readonly',
-        console: 'readonly',
-        localStorage: 'readonly',
-        fetch: 'readonly',
-        setTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        clearTimeout: 'readonly',
-        Image: 'readonly',
-        FileReader: 'readonly',
-        Blob: 'readonly',
-        URL: 'readonly',
-        TextEncoder: 'readonly',
-        TextDecoder: 'readonly',
-        DOMParser: 'readonly',
-        CustomEvent: 'readonly',
-        AbortController: 'readonly',
-        btoa: 'readonly',
-        atob: 'readonly',
-        // Node globals for scripts
-        process: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        module: 'readonly',
-        require: 'readonly',
-      },
+      sourceType: 'module',
     },
-    plugins: { react, 'react-hooks': reactHooks, 'jsx-a11y': jsxA11y },
+    plugins: {
+      'jsx-a11y': jsxA11y,
+      react,
+      'react-hooks': reactHooks,
+    },
     settings: { react: { version: 'detect' } },
     rules: {
       ...js.configs.recommended.rules,
       ...react.configs.recommended.rules,
       ...react.configs['jsx-runtime'].rules,
-      ...reactHooks.configs.recommended.rules,
-
-      // React specific rules
-      'react/prop-types': 'off', // Using PropTypes is optional
-      'react/react-in-jsx-scope': 'off', // Not needed with React 17+
-      'react/jsx-uses-react': 'off', // Not needed with React 17+
-
-      // General rules
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      ...jsxA11y.flatConfigs.recommended.rules,
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-
-      // Modern JS
-      'prefer-const': 'warn',
+      'no-unused-vars': 'off',
+      'no-undef': 'off',
       'no-var': 'error',
+      'prefer-const': 'warn',
+      'react/jsx-uses-react': 'off',
+      'react/prop-types': 'off',
+      'react/react-in-jsx-scope': 'off',
+      'react-hooks/exhaustive-deps': 'error',
+      'react-hooks/rules-of-hooks': 'error',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
-
-  // Prettier config (must be last to override other formatting rules)
+  {
+    files: ['src/**/*.{js,jsx,mjs}'],
+    rules: { 'no-undef': 'error' },
+  },
   prettier,
-];
+);

@@ -10,14 +10,13 @@
     "checkJs": false,
     "paths": {
       "@/*": ["./*"],
-      "i18n/*": ["./i18n/*"],
-      "components/*": ["./components/*"],
       "assets/*": ["./assets/*"],
+      "constants/*": ["./constants/*"],
       "config/*": ["./config/*"],
       "features/*": ["./features/*"],
       "lib/*": ["./lib/*"],
-      "scss/*": ["./scss/*"],
-      "translations/*": ["./i18n/locales/*"],
+      "repositories/*": ["./repositories/*"],
+      "services/*": ["./services/*"],
       "utils/*": ["./utils/*"]
     }
   },
