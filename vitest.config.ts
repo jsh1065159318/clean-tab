@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   test: {
-    exclude: ['it-tools-main/**', 'node_modules/**', 'build/**', 'dist/**'],
+    exclude: ['server/**', 'node_modules/**', 'build/**', 'dist/**'],
     include: ['src/**/*.test.{js,jsx,ts,tsx}'],
   },
 })

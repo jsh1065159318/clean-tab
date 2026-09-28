@@ -12,8 +12,8 @@
  * 4. Distribution .zip files are generated for Chrome and Firefox
  *
  * Build Commands:
- * - `bun run build` - Production build for all browsers
- * - `bun run dev` - Development server with HMR
+ * - `npm run build` - Production build for all browsers
+ * - `npm run dev` - Development server with HMR
  */
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
@@ -90,12 +90,12 @@ const copyIconFiles = (targetDir, files) => {
 const writeBuildManifest = (sourceFile, targetFile) => {
   const manifest = JSON.parse(fs.readFileSync(resolveRoot(sourceFile), 'utf8'));
   manifest.version = pkg.version;
-  const configuredUrl = process.env.VITE_SUPABASE_URL?.trim();
+  const configuredUrl = process.env.VITE_API_BASE_URL?.trim();
   if (configuredUrl) {
     const origin = new URL(configuredUrl).origin;
-    const websocketOrigin = origin.replace(/^http/, 'ws');
+    // 同步改为轮询后不再建立 WebSocket，connect-src 只需放行 API 域名本身。
     manifest.host_permissions = [`${origin}/*`];
-    manifest.content_security_policy.extension_pages = `script-src 'self'; object-src 'self'; connect-src 'self' ${origin} ${websocketOrigin};`;
+    manifest.content_security_policy.extension_pages = `script-src 'self'; object-src 'self'; connect-src 'self' ${origin};`;
   } else {
     delete manifest.host_permissions;
     manifest.content_security_policy.extension_pages = "script-src 'self'; object-src 'self'; connect-src 'self';";

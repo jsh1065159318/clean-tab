@@ -17,7 +17,6 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.57.4",
     "idb-keyval": "6.3.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -59,6 +58,10 @@
     "pretty": "prettier --write \"./**/*.{js,jsx,ts,tsx,mjs,json,scss,css}\"",
     "lint": "eslint \"./src/**/*.{js,jsx,mjs,ts,tsx}\" && stylelint \"./src/styles/**/*.{scss,css}\"",
     "lint:fix": "eslint \"./src/**/*.{js,jsx,mjs,ts,tsx}\" --fix && stylelint \"./src/styles/**/*.{scss,css}\" --fix",
-    "prepare": "husky"
+    "prepare": "husky",
+    "server:install": "npm --prefix server install",
+    "server:migrate": "npm --prefix server run migrate",
+    "server:dev": "npm --prefix server run dev",
+    "server:start": "npm --prefix server run start"
   }
 }
