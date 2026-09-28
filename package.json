@@ -62,6 +62,8 @@
     "server:install": "npm --prefix server install",
     "server:migrate": "npm --prefix server run migrate",
     "server:dev": "npm --prefix server run dev",
-    "server:start": "npm --prefix server run start"
+    "server:start": "npm --prefix server run start",
+    "server:check": "npm --prefix server run check",
+    "server:test": "npm --prefix server test"
   }
 }

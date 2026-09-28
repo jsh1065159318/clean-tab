@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   check:
+    name: 扩展前端
     runs-on: ubuntu-latest
 
     steps:
@@ -24,3 +25,49 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  server:
+    name: 同步后端
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: clean_tab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d clean_tab"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://test:test@127.0.0.1:5432/clean_tab
+      # 数据库不可用时直接失败，避免集成测试被静默跳过而 CI 依然显示通过。
+      REQUIRE_DATABASE: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 后端要求 Node >= 20.12，此处固定为本地已验证的 22。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: 安装依赖
+        working-directory: server
+        run: npm ci
+
+      - name: 语法检查
+        working-directory: server
+        run: npm run check
+
+      - name: 单元与集成测试
+        working-directory: server
+        run: npm test
