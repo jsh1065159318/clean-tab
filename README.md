@@ -13,7 +13,7 @@
 - 今日重点、任务管理和多笔记列表
 - 分类工具页与本地实用工具
 - 明暗主题、背景和搜索引擎设置
-- 本地存储和可选 Supabase 同步
+- 本地存储和可选自建后端同步
 - 桌面端与移动端响应式布局
 
 ## 开发
@@ -47,15 +47,23 @@ npm run typecheck
 
 环境要求：Node.js 20 或更高版本，npm 10 或更高版本。
 
-如果需要登录和云端同步，先创建 `.env.local`，只填写 Supabase 项目地址和公开密钥：
+如果需要登录和云端同步，先按 [`server/README.md`](server/README.md) 启动自建后端，然后在项目根目录创建 `.env.local`：
 
 ```sh
 cp .env.example .env.local
 ```
 
-扩展端只能使用 publishable/anon key，不能写入 `service_role` 或其他 secret key。
+只需填写后端地址：
 
-账号注册采用“注册后直接登录”模式。请在 Supabase Dashboard 的 `Authentication → Sign In / Providers → Email` 中保持邮箱登录开启，并关闭 `Confirm email`。这个开关属于服务端 Auth 配置，不能由浏览器前端安全地代替设置；如果没有关闭，注册接口会创建账号但不会返回登录会话。
+```sh
+VITE_API_BASE_URL=http://127.0.0.1:8787
+```
+
+后端为 Node.js + Hono + PostgreSQL，运行时依赖仅 3 个，部署方式见 [`server/README.md`](server/README.md)。不配置该项时，扩展以纯本地模式运行，全部核心功能仍然可用。
+
+构建时 `vite.config.mjs` 会从 `VITE_API_BASE_URL` 推导扩展的 `connect-src` 与 `host_permissions`。若构建时未设置该变量，扩展不会放行任何外部域名，登录与同步会被浏览器拦截。
+
+账号注册采用“注册后直接登录”模式，后端没有邮箱确认环节，注册成功即返回登录会话。
 
 安装依赖并构建：
 

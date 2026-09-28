@@ -8,6 +8,8 @@
 
 **本轮结果（2026-09-28）**：仓库完成落库与治理——重建工作按功能域拆为 5 个语义化提交并全部入库，移除无引用的 `it-tools-main` 副本与空目录，CI 工作流纳入版本管理；公共聊天与后台管理后端正式下线（新增 `0007_drop_chat.sql`、删除两个 Edge Function、移除 `authStore` 中遗留的 `user_roles` 查询）；typecheck、48 个单元测试与 lint 全部通过。
 
+**本轮结果（2026-09-28 · 同步后端替换）**：Supabase 已替换为自建轻量后端 `server/`（Node + Hono + PostgreSQL，运行时依赖 3 个）。前端改造面收敛在 5 个文件：`config/backend.js`、`services/apiClient.js`、`services/authService.js`、`repositories/workspaceRepository.js`、`services/workspaceRealtimeService.ts`，其余约 6,000 行代码未改动。Realtime 长连接改为轮询，扩展 CSP 不再需要 WebSocket 来源。后端在真实 PostgreSQL 18 上通过 43 项集成测试；typecheck、48 个单元测试、lint 与生产构建全部通过。
+
 ## 一、目标与成功指标
 
 用户打开新标签页后，应当可以在 3 秒内完成以下任意操作：
@@ -287,3 +289,50 @@
 - 每个新功能至少覆盖键盘、移动视口、损坏数据和离线场景。
 
 任何新功能在上述 P0、P1 项完成前不得进入首页。新的首页需求仍需证明其直接服务搜索、快捷访问、任务或记录，并且属于多数用户的高频操作。
+
+## 十、同步后端替换记录（2026-09-28）
+
+### 背景
+
+原后端为托管 Supabase。托管实例在目标网络环境下可用性不足，且免费版存在 7 天低活跃自动暂停策略，决定替换为自建后端。
+
+### 替换前后对照
+
+| 维度 | 替换前 | 替换后 |
+| --- | --- | --- |
+| 运行时依赖 | `@supabase/supabase-js` | `hono`、`@hono/node-server`、`pg` |
+| 认证 | Supabase GoTrue（邮箱确认需后台开关） | 自建 scrypt + 会话令牌（注册即登录） |
+| 会话存储 | supabase-js 持久化 | 令牌只存 SHA-256 摘要于 `sessions` 表 |
+| 权限模型 | 数据库 RLS 策略 | API 层 `user_id` 条件校验 |
+| 变更通知 | Realtime WebSocket 订阅 | 客户端轮询 `/workspace/revision` |
+| 扩展 CSP | 需放行 `https://` 与 `wss://` | 仅需放行 `https://` |
+| 首包 JS gzip | 81.2 KiB | 81.0 KiB |
+| 云端分块 | `supabaseClient` 120.9 KiB | `apiClient` 1.3 KiB |
+
+### 改造面
+
+新增：
+- `server/` —— 后端服务（`src/schema.sql`、`src/routes/{auth,workspace}.js`、`src/lib/{password,sessions,http,validate}.js`、`deploy/` 部署示例）
+- `src/config/backend.js`、`src/services/apiClient.js`
+
+重写：
+- `src/services/authService.js`（令牌式认证，移除 `sendMagicLink` 等无调用方方法）
+- `src/repositories/workspaceRepository.js`（HTTP 调用替代 PostgREST 查询构造器，保留 14 个方法契约）
+- `src/services/workspaceRealtimeService.ts`（轮询替代订阅）
+
+删除：
+- `src/config/supabase.js`、`src/services/supabaseClient.js`、`supabase/` 目录
+
+### 关键实现约束
+
+- **`version` 必须是 `integer` 而非 `bigint`**：`node-postgres` 把 `int8` 解析为字符串，会让前端 `Number.isInteger(version)` 判断静默失效，导致乐观锁失效。此问题已由集成测试捕获。
+- **批量接口必须返回 `conflictId`**：否则客户端无法把远端内容与冲突的本地条目配对，会把整批请求误判为冲突。
+- **`workspaceRepository` 保留 `userId` 形参**：后端从令牌推导身份，该参数不参与请求，仅用于维持既有调用契约，避免改动三个调用方的 23 处传参。
+- **构建时必须设置 `VITE_API_BASE_URL`**：`vite.config.mjs` 据此注入 `connect-src` 与 `host_permissions`，缺失会导致登录与同步被浏览器拦截。
+
+### 待办
+
+- [ ] 将 `workspaceRepository` 的 `userId` 形参连同三个调用方一并移除
+- [ ] 为 `server/` 增加自动化测试（当前依赖手工集成脚本，未纳入 `npm test`）
+- [ ] 将 `server/` 纳入 CI（lint / 集成测试需 PostgreSQL service container）
+- [ ] 从 Supabase 迁移既有用户数据（当前无迁移脚本，云端历史数据需手工导出）

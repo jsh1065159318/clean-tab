@@ -19,13 +19,15 @@ src/index.jsx
 - 多笔记列表、搜索和自动保存
 - 分类工具页和本地实用工具
 - 主题、背景和搜索引擎设置
-- 本地存储和可选 Supabase 同步
+- 本地存储和可选自建后端同步
 
 AI 助手、公共聊天室、管理中心、天气、日历和工具中心不属于当前产品主线。
 
 ## 2. 目录结构
 
 ```text
+server/src                  自建同步后端（Node + Hono + PostgreSQL）
+server/deploy               部署示例（systemd 服务单元 / Nginx 反向代理）
 src/app                     应用入口与页面编排
 src/features/dashboard      首页和快捷方式
 src/features/tasks          任务页面
@@ -64,7 +66,7 @@ src/utils                   无状态工具函数
 ### 3.4 组件职责单一
 
 - `WorkspaceApp.tsx` 只负责编排页面和共享动作。
-- 页面组件不直接访问 Supabase。
+- 页面组件不直接访问同步后端。
 - 云端加载、离线队列和 Realtime 统一放在同步 hook/service。
 - 视觉规则使用 class 和 CSS 变量，避免大面积内联样式。
 
@@ -86,9 +88,11 @@ src/utils                   无状态工具函数
 2. 合并本地、远端和待处理队列状态。
 3. 对本地修改进行防抖上传。
 4. 在断网时保留操作并等待恢复。
-5. 订阅 Realtime 更新。
+5. 轮询云端变更（`workspaceRealtimeService` 定时比对 `/workspace/revision`，不建立长连接）。
 
 界面不应重复实现这些逻辑。
+
+同步后端位于 `server/`，是唯一访问数据库的组件。它从会话令牌推导用户身份，不信任客户端传入的用户标识；乐观锁通过 `version` 字段实现，冲突时返回 409 并携带 `remote` 与 `conflictId`。部署与接口细节见 [`../server/README.md`](../server/README.md)。
 
 ## 5. 视觉规范
 
@@ -129,8 +133,11 @@ npm run dev
 ```sh
 npm run typecheck
 npm run lint
+npm test
 npm run build
 ```
+
+改动同步逻辑时，还需按 `server/README.md` 启动本地后端并验证登录、断网恢复与多设备冲突场景。`server/` 不在根 `tsconfig.json` 与 ESLint 的覆盖范围内，不会被上述门禁检查。
 
 页面修改至少需要验证：
 
